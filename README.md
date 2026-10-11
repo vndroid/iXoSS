@@ -713,6 +713,7 @@ Build the repository's [Dockerfile](Dockerfile), which uses Go 1.26 on Alpine
 docker build -t ixoss:alpine3.23 .
 mkdir -p images
 docker run --rm -p 8080:8080 \
+  --cap-add=SYS_NICE \
   -v "$PWD/images:/srv/images:ro" \
   --mount type=volume,source=ixoss-cache,target=/var/cache/ixoss \
   ixoss:alpine3.23
@@ -724,6 +725,17 @@ user. The default disk cache lives at `/var/cache/ixoss`; if you bind-mount a
 cache directory instead of using the named volume above, make it writable by
 UID 10001. Override configuration with Docker's `-e IXOSS_...` options.
 The build context includes only Go sources, module files and license notices.
+
+Or use the [Compose example](compose.example.yaml), which includes a persistent
+cache volume, a health check and automatic restart:
+
+```sh
+mkdir -p images
+docker compose -f compose.example.yaml up -d --build
+```
+
+Both examples add `SYS_NICE` to allow the HEIC encoder's NUMA memory policy
+calls and avoid `set_mempolicy: Operation not permitted` messages at startup.
 
 Ubuntu 24.04:
 

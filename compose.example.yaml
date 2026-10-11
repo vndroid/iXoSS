@@ -1,0 +1,38 @@
+# Create ./images and place readable source images in it before starting:
+#   mkdir -p images
+#   docker compose -f compose.example.yaml up -d --build
+services:
+  ixoss:
+    build:
+      context: .
+    image: ixoss:alpine3.23
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      IXOSS_ROOT: /srv/images
+      IXOSS_CACHE_DIR: /var/cache/ixoss
+      IXOSS_BIND: 0.0.0.0:8080
+    # Allow the HEIC encoder's NUMA memory policy calls.
+    cap_add:
+      - SYS_NICE
+    volumes:
+      # The image runs as UID/GID 10001; source files must be readable.
+      - type: bind
+        source: ./images
+        target: /srv/images
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: volume
+        source: ixoss-cache
+        target: /var/cache/ixoss
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  ixoss-cache:
