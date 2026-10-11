@@ -7,9 +7,7 @@
 //	GET /path/to/image.jpg?x-oss-process=image/format,avif
 //	GET /path/to/image.jpg?x-oss-process=image/info     -> JSON
 //
-// Where the bytes come from is decided once, at construction: a directory on
-// disk (Root) or an HTTP origin (Upstream). Everything below the source
-// interface is identical either way.
+// Source images and watermarks are read from the configured root directory.
 package httpserver
 
 import (
@@ -22,7 +20,6 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/vndroid/iXoSS/internal/auximageprovider"
@@ -48,26 +45,8 @@ const _ = uint(source.HeaderWindow - imageinfo.HeaderBytes)
 // Config holds the knobs the HTTP layer itself needs. Image-processing config
 // lives in processing.Config / vips.Config.
 type Config struct {
-	// Root is the directory images are served from. Mutually exclusive with
-	// Upstream; exactly one of the two must be set.
+	// Root is the directory images are served from. Required.
 	Root string
-
-	// Upstream is the base URL images are fetched from, e.g.
-	// "http://localhost:3030". A request's path is appended to it: a GET of
-	// /a/b.jpg fetches <Upstream>/a/b.jpg.
-	Upstream string
-	// UpstreamTimeout bounds one fetch, separately from ProcessTimeout. A slow
-	// origin should not be able to spend the budget that exists for encoding.
-	UpstreamTimeout time.Duration
-	// UpstreamTTL is how long upstream content may be reused without going back
-	// to the origin. It covers two things: cached results whose origin sent no
-	// ETag or Last-Modified to key on, and the in-memory watermark map, which
-	// has no validator of its own.
-	UpstreamTTL time.Duration
-	// UpstreamInfoMaxBytes bounds the whole-object read that the info endpoint
-	// falls back to when a header window cannot answer the question. It only
-	// applies in upstream mode; see serveInfo.
-	UpstreamInfoMaxBytes int64
 
 	// CacheDir stores transcoded results. Empty disables caching, which is only
 	// sensible for testing — see the package comment in internal/cache.
@@ -81,8 +60,8 @@ type Config struct {
 	// MaxSourceBytes rejects source objects larger than this.
 	MaxSourceBytes int64
 
-	// MaxWatermarkBytes rejects a watermark object larger than this, on the
-	// wire. Separate from MaxSourceBytes because a watermark is a decoration
+	// MaxWatermarkBytes rejects a watermark file larger than this.
+	// Separate from MaxSourceBytes because a watermark is a decoration
 	// composited onto an image, not the image, and giving it the source's
 	// budget is what made 64 cached watermarks worth 6.25 GiB.
 	MaxWatermarkBytes int64
@@ -96,7 +75,7 @@ type Config struct {
 	WatermarkCacheBytes int64
 	// Concurrency caps simultaneous image processing. Zero means GOMAXPROCS.
 	Concurrency int
-	// ProcessTimeout bounds one transcode, not counting the fetch.
+	// ProcessTimeout bounds one transcode, not counting the local file read.
 	ProcessTimeout time.Duration
 	// CacheControl is sent with successful image responses.
 	CacheControl string
@@ -136,19 +115,6 @@ type SignatureVerifier interface {
 // real filename. A query parameter leaves the key alone.
 const SignatureQueryKey = "x-ixoss-signature"
 
-// DefaultUpstreamTimeout bounds one fetch from the origin.
-const DefaultUpstreamTimeout = 10 * time.Second
-
-// DefaultUpstreamTTL is how stale upstream content may get when the origin
-// gives nothing better to go on. Five minutes is short enough that a replaced
-// object turns over on its own within a coffee break, and long enough that a
-// busy path is not re-fetched per request.
-const DefaultUpstreamTTL = 5 * time.Minute
-
-// DefaultUpstreamInfoMaxBytes bounds info's whole-object fallback in upstream
-// mode. See serveInfo for why the ordinary case never reaches it.
-const DefaultUpstreamInfoMaxBytes = 10 << 20
-
 // Watermark budgets. See the watermarkProvider doc comment for why there are
 // three of them and what each one actually stops.
 const (
@@ -174,12 +140,9 @@ const (
 // NewDefaultConfig returns usable defaults.
 func NewDefaultConfig() Config {
 	return Config{
-		MaxSourceBytes:       100 << 20,
-		ProcessTimeout:       20 * time.Second,
-		CacheControl:         "public, max-age=31536000, immutable",
-		UpstreamTimeout:      DefaultUpstreamTimeout,
-		UpstreamTTL:          DefaultUpstreamTTL,
-		UpstreamInfoMaxBytes: DefaultUpstreamInfoMaxBytes,
+		MaxSourceBytes: 100 << 20,
+		ProcessTimeout: 20 * time.Second,
+		CacheControl:   "public, max-age=31536000, immutable",
 
 		MaxWatermarkBytes:      DefaultMaxWatermarkBytes,
 		MaxWatermarkResolution: DefaultMaxWatermarkResolution,
@@ -194,14 +157,6 @@ type Server struct {
 	cache  *cache.Disk
 	proc   *processing.Processor
 	styles map[string]string
-
-	// remote records that src goes over the network. Three things branch on it:
-	// info's whole-object fallback gets its own smaller bound, the cache key
-	// falls back to a time bucket when the origin sends no validator, and the
-	// watermark map expires.
-	remote bool
-	// Warn once after the first successful stat without an origin validator.
-	noValidatorWarn sync.Once
 
 	// sem bounds concurrent encodes. libvips is happy to use every core for one
 	// image; letting N requests each do that turns a small box into a queue with
@@ -225,7 +180,7 @@ type Server struct {
 // newProcessor is called with the watermark provider once the source is open,
 // because the provider needs the source: an OSS watermark names an object key,
 // and that key is fetched exactly the way the image being served is — through
-// the same traversal checks on disk, from the same origin over HTTP.
+// the same traversal and symlink checks on disk.
 func New(cfg Config, newProcessor func(auximageprovider.Provider) (*processing.Processor, error)) (*Server, error) {
 	stop := make(chan struct{})
 	styles, err := loadStyles(cfg.StylesFile)
@@ -233,20 +188,12 @@ func New(cfg Config, newProcessor func(auximageprovider.Provider) (*processing.P
 		return nil, err
 	}
 
-	src, remote, err := newSource(cfg)
+	src, err := source.NewLocal(cfg.Root)
 	if err != nil {
 		return nil, err
 	}
 
-	ttl := time.Duration(0)
-	if remote {
-		ttl = cfg.UpstreamTTL
-		if ttl <= 0 {
-			ttl = DefaultUpstreamTTL
-		}
-	}
-
-	watermarks := newWatermarkProvider(src, cfg, ttl)
+	watermarks := newWatermarkProvider(src, cfg)
 	proc, err := newProcessor(watermarks)
 	if err != nil {
 		return nil, err
@@ -273,7 +220,6 @@ func New(cfg Config, newProcessor func(auximageprovider.Provider) (*processing.P
 	return &Server{
 		cfg:        cfg,
 		src:        src,
-		remote:     remote,
 		cache:      c,
 		proc:       proc,
 		styles:     styles,
@@ -282,29 +228,6 @@ func New(cfg Config, newProcessor func(auximageprovider.Provider) (*processing.P
 		verifier:   verifier,
 		stop:       stop,
 	}, nil
-}
-
-// newSource picks the backend. Root and Upstream are mutually exclusive, and
-// the refusal is here rather than only in main so that an embedder cannot end
-// up with a server that silently reads local disk while its operator believes
-// it is talking to an origin.
-func newSource(cfg Config) (source.Source, bool, error) {
-	switch {
-	case cfg.Root == "" && cfg.Upstream == "":
-		return nil, false, errors.New("httpserver: one of Root or Upstream must be set")
-	case cfg.Root != "" && cfg.Upstream != "":
-		return nil, false, errors.New("httpserver: Root and Upstream are mutually exclusive")
-	case cfg.Upstream != "":
-		timeout := cfg.UpstreamTimeout
-		if timeout <= 0 {
-			timeout = DefaultUpstreamTimeout
-		}
-		u, err := source.NewUpstream(cfg.Upstream, timeout)
-		return u, true, err
-	default:
-		l, err := source.NewLocal(cfg.Root)
-		return l, false, err
-	}
 }
 
 // SourceDescription names where objects come from, for the startup log.
@@ -435,27 +358,15 @@ const originalSniffBytes = 32 << 10
 func (s *Server) serveOriginal(w http.ResponseWriter, r *http.Request) {
 	head := r.Method == http.MethodHead
 
-	// A HEAD needs the type and the length, not the object. Asking the source
-	// for a header window rather than the whole thing turns what was a full
-	// origin fetch — every byte of a 40 MB JPEG requested and then discarded —
-	// into a small ranged response, while still identifying the format from
-	// the bytes rather than on the origin's word.
-	var obj *source.Object
-	var err error
-	if head {
-		obj, err = s.src.OpenHeader(r.Context(), r.URL.Path, originalSniffBytes)
-	} else {
-		obj, err = s.src.Open(r.Context(), r.URL.Path)
-	}
+	// Opening a file is cheap; Peek below reads only the format detection window.
+	obj, err := s.src.Open(r.Context(), r.URL.Path)
 	if err != nil {
 		s.failSource(w, r, err)
 		return
 	}
 	defer obj.Close()
 
-	// Sniffed, not taken from the origin's Content-Type: an origin that labels a
-	// JPEG as application/octet-stream is common, and the bytes are authoritative
-	// either way. Peek leaves them in place for the copy below.
+	// Detect the format from the bytes. Peek preserves them for the copy below.
 	b, perr := obj.Peek(originalSniffBytes)
 	if perr != nil {
 		s.failSource(w, r, perr)
@@ -468,11 +379,7 @@ func (s *Server) serveOriginal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A chunked origin gives no length. Leaving the header off lets net/http
-	// chunk the response rather than buffering the whole object to count it.
-	if obj.Size >= 0 {
-		w.Header().Set("Content-Length", strconv.FormatInt(obj.Size, 10))
-	}
+	w.Header().Set("Content-Length", strconv.FormatInt(obj.Size, 10))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
 	if head {
 		return
@@ -548,7 +455,7 @@ func (s *Server) averageHue(b []byte) (color.RGB, error) {
 // ---------------------------------------------------------------------- info
 
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
-	obj, err := s.src.OpenHeader(r.Context(), r.URL.Path, imageinfo.HeaderBytes)
+	obj, err := s.src.Open(r.Context(), r.URL.Path)
 	if err != nil {
 		s.failSource(w, r, err)
 		return
@@ -561,14 +468,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	size := obj.Size
-	if size < 0 {
-		// A chunked origin never said how long the object is. The header window
-		// is all there is, so FileSize reports what arrived.
-		size = int64(len(head))
-	}
-
-	info, err := imageinfo.Read(bytes.NewReader(head), size)
+	info, err := imageinfo.Read(bytes.NewReader(head), obj.Size)
 	if info == nil {
 		s.fail(w, r, http.StatusUnprocessableEntity, "InvalidImage", "the image could not be read")
 		return
@@ -600,7 +500,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	needsGeometry := errors.As(err, &unsupported) || errors.Is(err, imageinfo.ErrHeaderTooShort)
 
 	if needsGeometry || !info.FrameCountKnown {
-		refined, rerr := s.infoViaVips(r.Context(), r.URL.Path, obj, info)
+		refined, rerr := s.infoViaVips(obj, info)
 		switch {
 		case rerr == nil:
 			info, err = refined, nil
@@ -646,34 +546,15 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 // fields that are right regardless — file size, and the format from the magic
 // bytes — so they are never touched here.
 //
-// This needs the whole object, which is the one expensive thing the info
-// endpoint can do. On local disk that is a file read. Against an origin it is a
-// second request, and the reason for the separate, smaller bound: an ordinary
-// info costs one ranged response whatever the image weighs, so a deployment can
-// refuse the rare whole-object case well below MaxSourceBytes without making
-// the endpoint unusable. When the origin ignored the range and already handed
-// over the whole object, that copy is used and no second request happens.
-func (s *Server) infoViaVips(ctx context.Context, urlPath string, obj *source.Object, partial *imageinfo.Info) (*imageinfo.Info, error) {
+// This reads the open file under MaxSourceBytes when its header is insufficient.
+func (s *Server) infoViaVips(obj *source.Object, partial *imageinfo.Info) (*imageinfo.Info, error) {
 	limit := s.cfg.MaxSourceBytes
-	if s.remote && s.cfg.UpstreamInfoMaxBytes > 0 && (limit <= 0 || s.cfg.UpstreamInfoMaxBytes < limit) {
-		limit = s.cfg.UpstreamInfoMaxBytes
-	}
 
 	if overLimit(obj.Size, limit) {
 		return nil, errSourceTooLarge{size: obj.Size, limit: limit}
 	}
 
-	// Partial is the source saying "what you can read is a prefix". When it is
-	// false the object is already here in full — Peek did not consume it, so
-	// ReadAll still starts at byte zero — and no second request is made. Only a
-	// ranged upstream response reaches the fetch below.
-	var b []byte
-	var err error
-	if obj.Partial {
-		b, err = s.fetchAll(ctx, urlPath, limit)
-	} else {
-		b, err = readAll(obj, limit)
-	}
+	b, err := readAll(obj, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -796,7 +677,7 @@ func (s *Server) serveProcessed(w http.ResponseWriter, r *http.Request, chain *o
 // discover Content-Length. Only advertise a type when the chain fixes it;
 // otherwise it depends on decoded alpha/animation and encoder preferences.
 func (s *Server) serveProcessedHeadMiss(w http.ResponseWriter, r *http.Request, chain *ossprocess.Chain, negotiated imagetype.Type) {
-	obj, err := s.src.OpenHeader(r.Context(), r.URL.Path, originalSniffBytes)
+	obj, err := s.src.Open(r.Context(), r.URL.Path)
 	if err != nil {
 		s.failSource(w, r, err)
 		return
@@ -897,44 +778,14 @@ func decodesAnimation(t imagetype.Type) bool {
 	return t == imagetype.GIF || t == imagetype.WEBP
 }
 
-// cacheKey builds the entry key from a source's identity.
-//
-// A local source is identified by path, size and mtime, as it always was. An
-// upstream one has no mtime, so the origin's validator stands in — and when the
-// origin sends none, a coarse time bucket does, which is the TTL. Without that
-// last clause an origin with no ETag would be cached under a key that never
-// changes, and a replaced object would never be picked up.
+// cacheKey preserves the local cache identity: path, size, mtime and chain.
 func (s *Server) cacheKey(info *source.Info, chain string) cache.Key {
-	k := cache.Key{
+	return cache.Key{
 		SourcePath: info.Key,
 		SourceSize: info.Size,
+		SourceMod:  info.ModTime,
 		Chain:      chain,
 	}
-
-	if !s.remote {
-		// Version is the mtime; keeping it in SourceMod leaves the hash of an
-		// existing local deployment's keys exactly as it was.
-		if mod, err := strconv.ParseInt(info.Version, 10, 64); err == nil {
-			k.SourceMod = mod
-		}
-		return k
-	}
-
-	if info.Version != "" {
-		k.SourceVersion = info.Version
-		return k
-	}
-
-	ttl := s.cfg.UpstreamTTL
-	if ttl <= 0 {
-		ttl = DefaultUpstreamTTL
-	}
-	s.noValidatorWarn.Do(func() {
-		slog.Warn("upstream sent neither ETag nor Last-Modified; transformed results use TTL-based cache keys",
-			"ttl", ttl)
-	})
-	k.SourceVersion = "ttl:" + strconv.FormatInt(time.Now().UnixNano()/int64(ttl), 10)
-	return k
 }
 
 type processed struct {
@@ -944,10 +795,7 @@ type processed struct {
 
 // process fetches the source and runs the pipeline over it.
 //
-// The fetch happens before ProcessTimeout is applied, deliberately. The two
-// budgets answer different questions — how long an origin may take, and how
-// long an encode may take — and folding them into one would let a slow origin
-// consume the time that exists for the work.
+// ProcessTimeout bounds the encode after the local file has been read.
 func (s *Server) process(ctx context.Context, urlPath string, chain *ossprocess.Chain, negotiated imagetype.Type) (*processed, error) {
 	b, err := s.fetchAll(ctx, urlPath, s.cfg.MaxSourceBytes)
 	if err != nil {
@@ -960,10 +808,7 @@ func (s *Server) process(ctx context.Context, urlPath string, chain *ossprocess.
 	}
 	defer src.Close()
 
-	// resize needs the source dimensions to resolve OSS's mode/limit rules. The
-	// bytes are already here, so this is a header parse over memory rather than
-	// the separate read it used to be — which, against an origin, was a whole
-	// extra request.
+	// Resolve resize rules from the bytes already in memory.
 	var srcW, srcH int
 	if chain.NeedsSourceSize() {
 		if srcW, srcH, err = s.sourceSize(b, src); err != nil {
@@ -1048,11 +893,8 @@ func (s *Server) sourceSize(b []byte, data imagedata.ImageData) (int, int, error
 
 // fetchAll opens an object and reads it into memory under a hard bound.
 //
-// The bound is applied twice on purpose: once to the length the source declares,
-// so an oversized object is refused before a byte of it is read, and once to the
-// bytes that actually arrive, because an origin may send no Content-Length at
-// all or may send one that is not true. The first check is the cheap one and the
-// second is the one that cannot be lied to.
+// Check the stat size before reading and enforce the bound again while reading,
+// in case the file grows after stat.
 func (s *Server) fetchAll(ctx context.Context, urlPath string, limit int64) ([]byte, error) {
 	obj, err := s.src.Open(ctx, urlPath)
 	if err != nil {
@@ -1065,10 +907,6 @@ func (s *Server) fetchAll(ctx context.Context, urlPath string, limit int64) ([]b
 
 // overLimit reports whether a declared size is over the bound. Zero or negative
 // means no bound.
-//
-// A negative size — the source never declared one — is not a refusal here. It
-// cannot be: there is nothing yet to compare. That case is caught on the way in
-// instead, by the limit ReadAll enforces on the bytes that actually arrive.
 func overLimit(size, limit int64) bool {
 	return limit > 0 && size > limit
 }
@@ -1082,8 +920,7 @@ func readAll(obj *source.Object, limit int64) ([]byte, error) {
 
 	b, err := obj.ReadAll(limit)
 	if errors.Is(err, source.ErrTooLarge) {
-		// The size was unknown by construction — that is why this path was
-		// reached — so the message reports the limit and leaves it at that.
+		// The file grew after stat; report the read limit without a stale size.
 		return nil, errSourceTooLarge{size: -1, limit: limit}
 	}
 	if err != nil {
@@ -1181,18 +1018,6 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, status int, code, 
 }
 
 func (s *Server) failSource(w http.ResponseWriter, r *http.Request, err error) {
-	// An origin failure keeps the origin's own status wherever passing it
-	// through says something true to the client, and becomes 502 or 504 where
-	// iXoSS had to invent one. What the origin actually said, and which URL it
-	// was, stay in the log: neither is the client's business.
-	var up *source.UpstreamError
-	if errors.As(err, &up) {
-		slog.Warn("upstream fetch failed",
-			"path", r.URL.Path, "url", up.URL, "origin_status", up.Status, "error", up.Err)
-		s.fail(w, r, up.StatusCode(), "UpstreamError", up.PublicMessage())
-		return
-	}
-
 	switch {
 	case errors.Is(err, source.ErrNotFound):
 		s.fail(w, r, http.StatusNotFound, "NoSuchKey", "the specified key does not exist")
@@ -1240,8 +1065,7 @@ func (s *Server) failProcess(w http.ResponseWriter, r *http.Request, err error) 
 	// A failure to get the bytes at all is not a processing failure, and its
 	// status comes from the source rather than the pipeline.
 	var big errSourceTooLarge
-	var up *source.UpstreamError
-	if errors.As(err, &big) || errors.As(err, &up) || errors.Is(err, source.ErrNotFound) {
+	if errors.As(err, &big) || errors.Is(err, source.ErrNotFound) {
 		s.failFetch(w, r, err)
 		return
 	}

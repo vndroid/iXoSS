@@ -12,7 +12,6 @@ type (
 	SignatureError       struct{ *errctx.TextError }
 	ImageResolutionError struct{ *errctx.TextError }
 	AnimationFramesError struct{ *errctx.TextError }
-	SourceURLError       struct{ *errctx.TextError }
 )
 
 // newAnimationFramesError reports a source animation longer than the cap.
@@ -66,16 +65,5 @@ func newImageResolutionError(msg string) error {
 		errctx.WithPublicMessage("Invalid source image"),
 		errctx.WithShouldReport(false),
 		errctx.WithDocsURL("https://docs.imgproxy.net/configuration/options#security"),
-	)}
-}
-
-func newSourceURLError(imageURL string) error {
-	return SourceURLError{errctx.NewTextError(
-		fmt.Sprintf("Source URL is not allowed: %s", imageURL),
-		1,
-		errctx.WithStatusCode(http.StatusNotFound),
-		errctx.WithPublicMessage("Invalid source URL"),
-		errctx.WithShouldReport(false),
-		errctx.WithDocsURL("https://docs.imgproxy.net/configuration/options#IXOSS_ALLOWED_SOURCES"),
 	)}
 }

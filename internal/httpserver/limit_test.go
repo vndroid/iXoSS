@@ -29,10 +29,6 @@ func TestOverLimit(t *testing.T) {
 		{"over", 100, 101, true},
 		{"no limit configured", 0, 1 << 40, false},
 		{"negative limit is no limit", -1, 1 << 40, false},
-		// An origin that sends no Content-Length declares -1. It must not be
-		// refused here on the strength of an unknown, and it must not be waved
-		// through either — the bound is applied again to the bytes that arrive.
-		{"undeclared size is not a refusal", 100, -1, false},
 	}
 
 	for _, tt := range tests {

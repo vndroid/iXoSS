@@ -177,19 +177,6 @@ func parseImageTypesQuality(env string) (map[imagetype.Type]int, error) {
 	return result, nil
 }
 
-// parseURLPatterns parses a comma-separated list of wildcard patterns and converts them
-// to compiled regular expressions using RegexpFromPattern.
-func parseURLPatterns(env string) ([]*regexp.Regexp, error) {
-	parts := strings.Split(env, ",")
-	result := make([]*regexp.Regexp, len(parts))
-
-	for i, p := range parts {
-		result[i] = RegexpFromPattern(strings.TrimSpace(p))
-	}
-
-	return result, nil
-}
-
 // parseHexSlice parses a comma-separated list of hex-encoded strings and returns
 // a slice of byte slices.
 func parseHexSlice(env string) ([][]byte, error) {

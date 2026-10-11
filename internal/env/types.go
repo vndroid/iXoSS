@@ -2,7 +2,6 @@ package env
 
 import (
 	"maps"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,7 +18,6 @@ type DurationVar = Desc[time.Duration]
 type StringSliceVar = Desc[[]string]
 type ImageTypesVar = Desc[[]imagetype.Type]
 type ImageTypesQualityVar = Desc[map[imagetype.Type]int]
-type URLPatternsVar = Desc[[]*regexp.Regexp]
 type HexSliceVar = Desc[[][]byte]
 type StringMapVar = Desc[map[string]string]
 type EnumVar[T any] = Desc[T]
@@ -154,16 +152,6 @@ func ImageTypesQuality(name string) ImageTypesQualityVar {
 		Name:    name,
 		format:  "format=quality pairs (e.g. jpg=80,webp=90)",
 		parseFn: parseImageTypesQuality,
-	}
-}
-
-// URLPatterns defines regexp patterns slice env var descriptor.
-// Parses comma-separated wildcard patterns and converts them to regexps.
-func URLPatterns(name string) URLPatternsVar {
-	return URLPatternsVar{
-		Name:    name,
-		format:  "comma-separated wildcard patterns",
-		parseFn: parseURLPatterns,
 	}
 }
 

@@ -41,9 +41,7 @@ func newTestProvider(t *testing.T) *watermarkProvider {
 		t.Fatal(err)
 	}
 
-	// No TTL: a local source's cached entries never expire, which is the
-	// behaviour these tests are about.
-	return newWatermarkProvider(src, NewDefaultConfig(), 0)
+	return newWatermarkProvider(src, NewDefaultConfig())
 }
 
 func imageOptions(path string) *options.Options {

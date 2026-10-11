@@ -31,7 +31,6 @@ through `IXOSS_STYLES` rather than the OSS console.
 | `format,f_png` | The `key_value` spelling is accepted alongside OSS's bare `format,png`. |
 | `x-ixoss-signature` | Optional HMAC request signing, off unless `IXOSS_KEY` and `IXOSS_SALT` are both set. See README. |
 | `GET /healthz` | Liveness probe; exempt from signing. |
-| `IXOSS_UPSTREAM` | Sources can come from another HTTP origin instead of a directory. See [Upstream mode](#upstream-mode). |
 
 ## Format conversion
 
@@ -158,41 +157,13 @@ level=INFO msg="encodable formats" formats="[jpg png webp gif avif jxl tiff bmp 
 | Animated JPEG XL | Needs libvips 8.16 to read; older builds see a still |
 | APNG | No released libvips reads APNG frames. It is on master under an unreleased `8.19.0` heading, in the libpng path only and behind `PNG_APNG_SUPPORTED`, so a future release is necessary but not sufficient. See Animation above. |
 
-## Upstream mode
-
-Everything above describes iXoSS serving a local directory, which is what all
-of it was measured against. `IXOSS_UPSTREAM` fetches sources from another HTTP
-origin instead. The OSS grammar, the pipeline and every response shape are
-unchanged; what follows is the short list of behaviour that is not, and it is
-about iXoSS against itself, not about OSS.
-
-| Case | Local mode | Upstream mode |
-|---|---|---|
-| A path that is a directory | `404 NoSuchKey` | A directory-listing origin may return `200` HTML, which iXoSS rejects with `415` by default. `IXOSS_PASSTHROUGH_NON_IMAGES=true` restores raw passthrough. |
-| Cache invalidation | Size and mtime are in the key, so an edited file misses immediately | The origin's `ETag`, else `Last-Modified`, is in the key. With neither, the key carries a `IXOSS_UPSTREAM_TTL_SEC` time bucket (300 s), so a replaced object is picked up within one TTL rather than immediately |
-| `info` on a source needing a whole-object read | Bounded by `IXOSS_MAX_SOURCE_BYTES` (100 MiB) | Bounded by `IXOSS_UPSTREAM_INFO_MAX_BYTES` (10 MiB) as well. The ranged path — every JPEG, PNG, GIF and WebP whose header answers — is unaffected and costs one 64 KiB response at any file size |
-| `info` on an origin that ignores `Range` | — | Still one request, still 64 KiB: the `200` body is capped and closed rather than downloaded |
-| Origin returns 4xx or 5xx | — | Passed through with the origin's own status and `{"Code":"UpstreamError"}`. `404` and `410` become the usual `404 NoSuchKey` |
-| Origin returns 3xx | — | `502`. Redirects are not followed — doing so would hand the choice of destination back to the origin, and passing the 3xx to the client would send it to fetch the unprocessed original |
-| Origin unreachable / times out | — | `502` / `504`. The fetch has its own budget, `IXOSS_UPSTREAM_TIMEOUT_MS` (10 s), separate from `IXOSS_PROCESS_TIMEOUT_MS` |
-| Client `Range` requests | Not supported | Not supported. iXoSS's own request to the origin is ranged; a client asking iXoSS for a range still gets the whole object |
-| Watermarks | Object keys are read from the root | Object keys are fetched from the origin and aged by `IXOSS_UPSTREAM_TTL_SEC`. Object, text and mixed results share a 64-entry / `IXOSS_WATERMARK_CACHE_BYTES` LRU; duplicate builds are coalesced. |
-| A `HEAD` of the untouched source | Opens the file, reads nothing | One ranged request for up to 32 KiB to identify registered image formats (including SVG); the length comes from `Content-Range` |
-| A processed `HEAD` on cache miss | No image encoding; output length omitted | Identity `HEAD` plus a ranged header request; known header-level size/frame violations are rejected, while failures that require a full decode remain optimistic; `Content-Type` is sent only when the output format can be determined without decoding |
-| Origin stalls or hangs up mid-object | — | `504` / `502`, the same as a failure on the response headers. A `GET` already streaming when that happens ends as a truncated response, which is what any proxy does once the headers are out |
-
-The error bodies never name the origin or repeat what it said. Which internal
-host iXoSS talks to is not the client's business; the operator gets the URL and
-the origin's status in the log.
-
 ## Errors
 
 The envelope matches OSS's shape — `{"Code": "...", "Message": "..."}` with the
 same JSON layout — so a client written against OSS parses iXoSS's failures. The
 `Code` strings themselves have **not** been cross-checked against OSS's list;
 iXoSS emits `NoSuchKey`, `InvalidArgument`, `InvalidImage`, `SourceTooLarge`,
-`AccessDenied`, `MethodNotAllowed`, `RequestTimeout`, `InternalError` and — in
-upstream mode only — `UpstreamError`.
+`AccessDenied`, `MethodNotAllowed`, `RequestTimeout` and `InternalError`.
 
 A path that escapes the root, names a directory, or does not exist all return the
 same `404 NoSuchKey`, deliberately: distinguishing them maps the filesystem for

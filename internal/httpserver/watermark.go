@@ -35,22 +35,20 @@ import (
 // options bag and builds the image.
 //
 // An object key is fetched from the same source the request itself is served
-// from: on local disk that means the path resolver, and therefore the traversal
-// and symlink checks, apply to watermarks too; against an origin it means the
-// watermark comes from the origin, through the same bounded fetch.
+// from: the same traversal and symlink checks apply to watermarks.
 //
 // A watermark has three separate budgets, and they bound three different things.
 // Getting one of them right does not get the others right, which is the reason
 // each is spelled out rather than reusing the source image's limits:
 //
-//   - maxBytes bounds one watermark on the wire. It is what stops a single
+//   - maxBytes bounds one encoded watermark file. It is what stops a single
 //     enormous file, and it is the cheapest check because it needs no decode.
 //
 //   - maxResolution bounds one watermark in pixels, and it is the one that
 //     actually protects the process. Bytes and pixels are only loosely related:
 //     a 440 KB PNG of a flat colour decodes to 144 megapixels and cost a
 //     measured 444 MB of RSS for a single request — about a thousand times its
-//     size on the wire. No byte limit low enough to be useful would have caught
+//     encoded size. No byte limit low enough to be useful would have caught
 //     it. The source image's own pixel budget did not either: it is 250 MP,
 //     which is a sane ceiling for a photograph and an absurd one for a logo.
 //
@@ -59,12 +57,12 @@ import (
 //     product is what is actually resident — 64 x 100 MiB was 6.25 GiB.
 //
 // The retained bytes are the encoded file, not decoded pixels: the map holds
-// what came off the wire, and the decode happens per use inside the pipeline.
+// what was read from disk, and the decode happens per use inside the pipeline.
 // That is why cacheBytes can be modest while maxResolution has to be strict.
 type watermarkProvider struct {
 	src source.Source
 
-	maxBytes      int64 // one watermark, on the wire
+	maxBytes      int64 // one encoded watermark file
 	maxResolution int   // one watermark, in pixels (width x height x frames)
 	cacheBytes    int64 // every retained watermark, added together
 
@@ -73,28 +71,16 @@ type watermarkProvider struct {
 	// object watermarks use their path as key; text and mixed ones use a digest
 	// of every rendering parameter. The count and byte budgets bound either.
 	//
-	// ttl is zero for a local source, whose entries never expire: a watermark
-	// read off disk is as current as the disk. For an upstream source it is not
-	// zero, and there is nothing here to revalidate against — the map holds an
-	// image, not an HTTP response — so entries carry a deadline and are rebuilt
-	// past it. Without that, replacing the watermark at the origin would not
-	// take effect until iXoSS restarted.
-	//
 	// One plain Mutex rather than an RWMutex because every hit takes a
 	// reference, which is a write to the refcount and to the entry's last-used
 	// time, and because at this size the critical section is a map lookup
 	// either way.
-	ttl time.Duration
 
 	mu        sync.Mutex
 	loaded    map[string]*cachedWatermark
 	usedBytes int64
 
-	// flight collapses concurrent first-time builds of the same key. Without
-	// it, N simultaneous requests for one uncached watermark were N downloads
-	// and N decodes — measured at 16 origin fetches for 16 requests. Only one
-	// of the results was ever kept; the rest were built and thrown away, and
-	// the transient peak had already happened.
+	// flight coalesces concurrent first-time builds of the same watermark.
 	flight singleflight.Group
 }
 
@@ -105,19 +91,14 @@ type watermarkProvider struct {
 // trivial, and it bounds the per-entry overhead that a byte budget cannot see.
 const maxWatermarks = 64
 
-// cachedWatermark is one memoised watermark image. A zero expiry never expires.
+// cachedWatermark is one memoised watermark image.
 type cachedWatermark struct {
-	data    imagedata.ImageData
-	size    int64
-	expires time.Time
-	used    time.Time
+	data imagedata.ImageData
+	size int64
+	used time.Time
 }
 
-func (c *cachedWatermark) stale(now time.Time) bool {
-	return !c.expires.IsZero() && now.After(c.expires)
-}
-
-func newWatermarkProvider(src source.Source, cfg Config, ttl time.Duration) *watermarkProvider {
+func newWatermarkProvider(src source.Source, cfg Config) *watermarkProvider {
 	maxBytes := cfg.MaxWatermarkBytes
 	if maxBytes <= 0 {
 		maxBytes = DefaultMaxWatermarkBytes
@@ -146,7 +127,6 @@ func newWatermarkProvider(src source.Source, cfg Config, ttl time.Duration) *wat
 		maxBytes:      maxBytes,
 		maxResolution: res,
 		cacheBytes:    cacheBytes,
-		ttl:           ttl,
 		loaded:        make(map[string]*cachedWatermark),
 	}
 }
@@ -218,12 +198,6 @@ func (p *watermarkProvider) Get(ctx context.Context, o *options.Options) (imaged
 	// through the group would mean waiters referencing an image whose only
 	// other holder might be closing it at that moment, which is exactly the
 	// use-after-free this cache already had once.
-	// Every time is read fresh, never carried across the build. A build can
-	// outrun the TTL — a slow origin and IXOSS_UPSTREAM_TTL_SEC=1 is enough —
-	// and stamping the finished entry with the timestamp from before it started
-	// stores something already expired. The entry then misses for every later
-	// request, each of which falls past the group and downloads again: the
-	// coalescing still holds for one burst and then stops working entirely.
 	_, err, _ := p.flight.Do(key, func() (any, error) {
 		if d := p.hit(key, time.Now()); d != nil {
 			d.Close()
@@ -244,15 +218,7 @@ func (p *watermarkProvider) Get(ctx context.Context, o *options.Options) (imaged
 		return d, make(http.Header), nil
 	}
 
-	// Reached only when the cache would not keep this watermark at all — it is
-	// larger than the whole cache budget — which newWatermarkProvider's clamp
-	// makes unreachable, or when this goroutine was descheduled for a whole TTL
-	// between the store and the hit above.
-	//
-	// It deliberately does not go back through the group. An entry the cache
-	// declines is one no amount of coalescing will make shareable, and retrying
-	// the group for it would serialise every request for that key behind a
-	// build whose result is thrown away each time.
+	// Another key may evict this entry before the hit; build a private result.
 	slog.Debug("watermark not retained; building for this request only", "key", key)
 	d, err := p.build(ctx, spec)
 	if err != nil {
@@ -264,18 +230,13 @@ func (p *watermarkProvider) Get(ctx context.Context, o *options.Options) (imaged
 // hit returns a new reference to the cached image, or nil.
 //
 // Taking the reference *inside* the lock is the whole point of the method. The
-// obvious shape — read the entry under a read lock, release it, then Ref — has
-// a window between the two in which an expiry can drop the map's reference to
-// zero and free the image, and Ref on a freed ImageData panics. It is not a
-// data race, so -race never sees it: the refcount is atomic and the map is
-// locked. It is a use-after-free reached through correctly synchronised code,
-// and the only fix is to make "still fresh" and "now referenced" one step.
+// lookup and Ref must be atomic with respect to eviction and Close.
 func (p *watermarkProvider) hit(key string, now time.Time) imagedata.ImageData {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	c, ok := p.loaded[key]
-	if !ok || c.stale(now) {
+	if !ok {
 		return nil
 	}
 	c.used = now
@@ -284,10 +245,6 @@ func (p *watermarkProvider) hit(key string, now time.Time) imagedata.ImageData {
 
 // store hands the cache ownership of d. It always consumes the reference: what
 // it does not retain, it closes.
-//
-// The clock is read here rather than taken from the caller, deliberately: the
-// caller's timestamp predates a build that may have taken longer than the TTL,
-// and an entry stamped with it would be born expired.
 func (p *watermarkProvider) store(key string, d imagedata.ImageData) {
 	size := int64(0)
 	if n, err := d.Size(); err == nil {
@@ -299,15 +256,10 @@ func (p *watermarkProvider) store(key string, d imagedata.ImageData) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Another request may have built the same image while this one was working.
-	// Keep whichever landed first so there is exactly one cached instance —
-	// unless it has expired since, in which case this fresher one replaces it.
-	if existing, ok := p.loaded[key]; ok {
-		if !existing.stale(now) {
-			d.Close()
-			return
-		}
-		p.removeLocked(key)
+	// Keep the first cached instance and release the duplicate.
+	if _, ok := p.loaded[key]; ok {
+		d.Close()
+		return
 	}
 
 	if p.cacheBytes > 0 && size > p.cacheBytes {
@@ -315,12 +267,9 @@ func (p *watermarkProvider) store(key string, d imagedata.ImageData) {
 		return
 	}
 
-	p.evictLocked(now, size)
+	p.evictLocked(size)
 
 	entry := &cachedWatermark{data: d, size: size, used: now}
-	if p.ttl > 0 {
-		entry.expires = now.Add(p.ttl)
-	}
 	p.loaded[key] = entry
 	p.usedBytes += size
 }
@@ -338,28 +287,8 @@ func (p *watermarkProvider) removeLocked(key string) {
 
 // evictLocked makes room for one more entry of `incoming` bytes.
 //
-// Expired entries go first. Nothing else ever removes one — an entry is only
-// replaced when its own key is asked for again — so without this sweep a TTL
-// bounds how *stale* the cache gets and not how *large*, and a key that is
-// never requested twice stays resident for the life of the process.
-//
-// Then the least recently used, until both budgets fit. Two budgets rather than
-// one because they fail differently: the entry count keeps the map small enough
-// for this linear scan to be free, and the byte total is what actually bounds
-// memory. Neither implies the other — 64 entries of 100 MiB each satisfied the
-// count and came to 6.25 GiB.
-//
-// The old argument for no bound at all — that the key is an object path, so the
-// entry count is bounded by the number of objects that exist — held for a
-// directory on disk and does not hold for an origin, which may mint a valid
-// image for any path it likes.
-func (p *watermarkProvider) evictLocked(now time.Time, incoming int64) {
-	for k, c := range p.loaded {
-		if c.stale(now) {
-			p.removeLocked(k)
-		}
-	}
-
+// Remove the least recently used entries until both count and byte budgets fit.
+func (p *watermarkProvider) evictLocked(incoming int64) {
 	for len(p.loaded) > 0 {
 		overCount := len(p.loaded) >= maxWatermarks
 		overBytes := p.cacheBytes > 0 && p.usedBytes+incoming > p.cacheBytes
@@ -642,7 +571,7 @@ var ErrWatermarkTooLarge = errors.New("watermark image is too large")
 // fetch reads a watermark object through the same source, and the same size
 // bound, as the image being watermarked.
 //
-// Every failure collapses to ErrBadWatermark, including an origin that is down.
+// Read failures collapse to ErrBadWatermark.
 // That is a deliberate loss of detail: this runs inside the pipeline, where the
 // alternative is leaking which watermark keys exist to anyone who can guess at
 // them. The operator gets the real error in the log.

@@ -42,18 +42,9 @@ func main() {
 }
 
 func run() error {
-	// Exactly one source. Accepting both and preferring one would let an
-	// operator who added IXOSS_UPSTREAM to a unit file that still carries
-	// IXOSS_ROOT believe they had switched over while every request was still
-	// being answered off the old disk.
 	root := env("IXOSS_ROOT", "")
-	upstream := env("IXOSS_UPSTREAM", "")
-	switch {
-	case root == "" && upstream == "":
-		return errors.New("one of IXOSS_ROOT or IXOSS_UPSTREAM is required: " +
-			"the directory images are served from, or the origin they are fetched from")
-	case root != "" && upstream != "":
-		return errors.New("IXOSS_ROOT and IXOSS_UPSTREAM are mutually exclusive: set one, not both")
+	if root == "" {
+		return errors.New("IXOSS_ROOT is required: the directory images are served from")
 	}
 
 	vc := vips.NewDefaultConfig()
@@ -87,12 +78,6 @@ func run() error {
 	}
 	hc := httpserver.NewDefaultConfig()
 	hc.Root = root
-	hc.Upstream = upstream
-	hc.UpstreamTimeout = time.Duration(envInt("IXOSS_UPSTREAM_TIMEOUT_MS",
-		int(hc.UpstreamTimeout/time.Millisecond))) * time.Millisecond
-	hc.UpstreamTTL = time.Duration(envInt("IXOSS_UPSTREAM_TTL_SEC",
-		int(hc.UpstreamTTL/time.Second))) * time.Second
-	hc.UpstreamInfoMaxBytes = int64(envInt("IXOSS_UPSTREAM_INFO_MAX_BYTES", int(hc.UpstreamInfoMaxBytes)))
 	hc.MaxWatermarkBytes = int64(envInt("IXOSS_MAX_WATERMARK_BYTES", int(hc.MaxWatermarkBytes)))
 	hc.WatermarkCacheBytes = int64(envInt("IXOSS_WATERMARK_CACHE_BYTES", int(hc.WatermarkCacheBytes)))
 	// Megapixels, to match IXOSS_MAX_SRC_RESOLUTION's units rather than sit
@@ -120,18 +105,8 @@ func run() error {
 	}
 
 	if !checker.SignatureEnabled() {
-		if upstream != "" {
-			// Worth saying differently in upstream mode. Unsigned local mode
-			// exposes a directory; unsigned upstream mode exposes the origin,
-			// to anyone who can reach this port, with a transform chain of their
-			// choosing attached — which is a way to spend the origin's bandwidth
-			// and this box's CPU at the same time.
-			slog.Warn("IXOSS_KEY / IXOSS_SALT are unset: requests are not signed, so anyone who " +
-				"can reach this port can drive arbitrary transforms of any object on the upstream origin.")
-		} else {
-			slog.Warn("IXOSS_KEY / IXOSS_SALT are unset: requests are not signed, " +
-				"so anyone who can reach this port can ask for any transform of any object under IXOSS_ROOT.")
-		}
+		slog.Warn("IXOSS_KEY / IXOSS_SALT are unset: requests are not signed, " +
+			"so anyone who can reach this port can ask for any transform of any object under IXOSS_ROOT.")
 	}
 
 	srv, err := httpserver.New(hc, func(wm auximageprovider.Provider) (*processing.Processor, error) {
@@ -155,7 +130,6 @@ func run() error {
 		slog.Info("listening",
 			"addr", addr,
 			"source", srv.SourceDescription(),
-			"mode", sourceMode(upstream),
 			"cache", orNone(hc.CacheDir),
 			"concurrency", hc.Concurrency)
 		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -225,13 +199,6 @@ func logLevel() slog.Level {
 	default:
 		return slog.LevelInfo
 	}
-}
-
-func sourceMode(upstream string) string {
-	if upstream != "" {
-		return "upstream"
-	}
-	return "local"
 }
 
 func orNone(s string) string {

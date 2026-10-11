@@ -1,21 +1,6 @@
 // Package source resolves a request path to the bytes of a source object.
 //
-// Two backends implement Source. Local reads from a directory on disk; Upstream
-// fetches over HTTP from a fixed origin. Which one a deployment gets is decided
-// once at startup, by IXOSS_ROOT or IXOSS_UPSTREAM, and nothing above this
-// package knows which one it is holding.
-//
-// The interface is shaped by what the handlers actually need, which is three
-// different amounts of the object:
-//
-//   - Stat, for the cache key, needs no body at all;
-//   - OpenHeader, for info and for resize's source dimensions, needs 64 KiB;
-//   - Open, for any decode, needs all of it.
-//
-// Keeping those separate is what makes the info endpoint cheap. Against local
-// disk the distinction is nearly free either way, but against an origin it is
-// the difference between a 64 KiB ranged response and pulling a 40 MB JPEG
-// across the network to read its header.
+// Files are read from a directory, with bounded header peeking and whole-file reads.
 package source
 
 import (
@@ -36,8 +21,7 @@ const HeaderWindow = 64 << 10
 var (
 	// ErrNotFound means the object does not exist.
 	ErrNotFound = errors.New("source: not found")
-	// ErrOutsideRoot means the resolved path escaped the root, or the joined
-	// URL escaped the upstream's base path.
+	// ErrOutsideRoot means the resolved path escaped the root directory.
 	ErrOutsideRoot = errors.New("source: path escapes the root directory")
 	// ErrNotRegular means the path exists but is a directory, device, socket...
 	ErrNotRegular = errors.New("source: not a regular file")
@@ -50,36 +34,22 @@ type Source interface {
 	// Stat returns an object's identity without reading its body.
 	Stat(ctx context.Context, urlPath string) (*Info, error)
 
-	// OpenHeader returns the object with at most n leading bytes readable. n
-	// must not exceed HeaderWindow. The result's Partial field reports whether
-	// the body was truncated; a backend is always allowed to return the whole
-	// object instead, and one that cannot serve a prefix cheaply does.
-	OpenHeader(ctx context.Context, urlPath string, n int) (*Object, error)
-
 	// Open returns the object with its whole body readable.
 	Open(ctx context.Context, urlPath string) (*Object, error)
 
-	// Describe names the origin, for startup logs and nothing else.
+	// Describe names the root directory, for startup logs and nothing else.
 	Describe() string
 }
 
 // Info identifies an object well enough to build a cache key from it, without
 // reading a byte of the body.
 type Info struct {
-	// Key is the canonical identity: the absolute path on disk for a local
-	// source, the fully-joined URL for an upstream one. It is not shown to
-	// clients — it names a filesystem layout or an internal host.
+	// Key is the absolute path on disk, never shown to clients.
 	Key string
-
-	// Size is the object's length in bytes, or -1 when the origin declined to
-	// say (a chunked response with no Content-Length).
+	// Size is the file length in bytes.
 	Size int64
-
-	// Version changes whenever the object's bytes change: the modification time
-	// for local disk, the ETag — else Last-Modified — for an upstream. Empty
-	// means the origin offered nothing to key on, and the caller has to fall
-	// back to time; see cache.Key.
-	Version string
+	// ModTime is the modification time in nanoseconds.
+	ModTime int64
 }
 
 // Object is an open source object: its identity plus a readable body.
@@ -91,16 +61,6 @@ type Info struct {
 // sees them.
 type Object struct {
 	Info
-
-	// ContentType is what the origin claimed. Empty for local disk, and never
-	// trusted for format detection — imagetype sniffs the bytes instead, which
-	// is right both when an origin mislabels an image and when it labels an
-	// HTML error page as HTML.
-	ContentType string
-
-	// Partial reports that the readable body is a prefix of the object rather
-	// than all of it.
-	Partial bool
 
 	br     *bufio.Reader
 	closer io.Closer
@@ -138,10 +98,8 @@ func (o *Object) WriteTo(w io.Writer) (int64, error) { return o.br.WriteTo(w) }
 
 // ReadAll reads the whole body into memory, refusing at limit bytes.
 //
-// The limit is a real bound, not a hint: it reads one byte past it and fails if
-// that byte exists, so an origin that lied in Content-Length — or never sent one
-// — cannot talk iXoSS into an unbounded allocation. A limit of zero or less
-// means no bound.
+// The limit reads one byte past the bound and fails if that byte exists,
+// including when a file grows after stat. A nonpositive limit means no bound.
 func (o *Object) ReadAll(limit int64) ([]byte, error) {
 	if limit <= 0 {
 		return io.ReadAll(o.br)

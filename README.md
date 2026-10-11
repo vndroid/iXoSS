@@ -12,7 +12,7 @@ refers only to the `x-oss-process` URL grammar it implements.
 Status: **working.** `resize`, `crop`, `indexcrop`, `trim`, `rotate`,
 `auto-orient`, `blur`, `sharpen`, `pixelate`, `bright`, `contrast`, `circle`,
 `rounded-corners`, `watermark`, `quality`, `format`, `interlace`, `info` and
-`average-hue` are served over HTTP from a local directory or an upstream origin,
+`average-hue` are served over HTTP from a local directory,
 with a bounded disk cache, request coalescing,
 a concurrency limit, `Accept`-based format negotiation and optional HMAC request
 signing.
@@ -38,90 +38,6 @@ GET /photo.jpg?x-oss-process=image/resize,m_fill,w_200,h_200/quality,q_80/format
 GET /photo.jpg?x-oss-process=image/info           JSON metadata
 GET /healthz
 ```
-
-### Upstream mode
-
-Instead of a directory, iXoSS can read from another HTTP server. Set
-`IXOSS_UPSTREAM` instead of `IXOSS_ROOT` — they are mutually exclusive, and
-setting both is a startup error rather than a silent preference:
-
-```sh
-IXOSS_UPSTREAM=http://localhost:3030 \
-IXOSS_CACHE_DIR=/var/cache/ixoss \
-  ixoss
-```
-
-The request path is appended to that base and nothing else changes, so every URL
-above works unaltered:
-
-```
-GET http://ixoss:8080/photo.jpg?x-oss-process=image/info
-  -> GET http://localhost:3030/photo.jpg
-  -> the same info response the local mode would give
-```
-
-A base may carry a path prefix (`http://origin:3030/images`), and the request
-path is normalised before it is joined, so `..` cannot climb out of that prefix.
-It may not carry a query string or a fragment.
-
-Four things are worth knowing before switching a deployment over.
-
-**The origin is fixed, and redirects are not followed.** The host comes from
-configuration and never from the request, so the SSRF surface that makes a
-general image proxy dangerous is not open here — and following a 3xx would hand
-that choice back to the origin, so a redirect is reported as `502` rather than
-obeyed.
-
-**`info` still costs a header, not a file.** iXoSS asks for
-`Range: bytes=0-65535`. An origin that honours it answers `206` and the endpoint
-costs one small response however large the image is — measured at one origin
-request and no measurable memory for a 40 MB JPEG, the same as reading it off
-disk. Only the cases that need the whole object — a container with no header
-walk (AVIF, HEIC, JXL, TIFF, BMP), or a JPEG whose SOF sits past 64 KiB — make a
-second, full request, and those are bounded separately by
-`IXOSS_UPSTREAM_INFO_MAX_BYTES` (10 MiB), well below `IXOSS_MAX_SOURCE_BYTES`.
-An origin that ignores `Range` and answers `200` is not a problem either: the
-body is capped at 64 KiB and closed, so the transfer is aborted, not downloaded.
-
-**Cache entries key on the origin's validator and reported size.** `ETag`, else
-`Last-Modified`, takes the place of the mtime a local stat provides. An origin
-that sends neither leaves no version to key on, so the key carries a time bucket instead
-— that is `IXOSS_UPSTREAM_TTL_SEC`, and it is why a replaced object turns over
-within five minutes by default rather than never. Use an `ETag` that actually
-changes on every replacement; a coarse `Last-Modified` alone can miss a
-same-size update within its timestamp granularity, and suppresses the TTL
-fallback. The same TTL ages the in-memory watermark map, which
-has no validator of its own; its size is bounded separately — see
-[Watermark limits](#watermark-limits).
-The server logs one warning on the first upstream object that supplies neither
-validator, so a deployment does not enter TTL-only invalidation silently.
-
-**Signing matters more here.** Unsigned local mode exposes a directory. Unsigned
-upstream mode lets anyone who can reach the port drive arbitrary transform
-chains against the origin, which spends the origin's bandwidth and this box's
-CPU at the same time. See [Request signing](#request-signing).
-
-Round trips per request, so the cost is not a surprise:
-
-| request | origin requests |
-|---|---|
-| `info`, header answers | 1 (ranged) |
-| `info`, needs the whole object | 2 |
-| transform, cache hit | 1 (`HEAD`) |
-| transform, cache miss | 2 (`HEAD` + `GET`) |
-| 12 concurrent identical transforms, cold | 12 `HEAD` + 1 `GET` — the encode is coalesced |
-| the source untouched | 1 |
-| `HEAD` of a transform, cache miss | 2 (`HEAD` + 32 KiB ranged `GET`); no encode and no `Content-Length` |
-| `HEAD` of the source untouched | 1 (ranged — the type is sniffed from up to 32 KiB, the length comes from `Content-Range`) |
-
-`HEAD` is used for the identity check; an origin that answers `405` or `501` to
-it gets a one-byte ranged `GET` instead.
-For a transformed `HEAD`, a warm cache returns the exact output length and
-type. On a miss, iXoSS checks only the source header: it omits
-`Content-Length`, and omits `Content-Type` when the output format depends on
-decoded image properties (including `format,auto` on animated input). Limits
-that can be proved from the bounded header are enforced, but a long JPEG/GIF or
-a decoder-specific failure can remain optimistic until the corresponding GET.
 
 ### Supported actions
 
@@ -464,11 +380,7 @@ unchanged:
 
 | variable | default | meaning |
 |---|---|---|
-| `IXOSS_ROOT` | *(one of these two is required)* | directory images are served from |
-| `IXOSS_UPSTREAM` | *(one of these two is required)* | base URL images are fetched from, e.g. `http://localhost:3030` |
-| `IXOSS_UPSTREAM_TIMEOUT_MS` | `10000` | bounds one fetch, separately from the processing deadline |
-| `IXOSS_UPSTREAM_TTL_SEC` | `300` | how long upstream content is reused when the origin sends no `ETag` or `Last-Modified`; also how long a cached watermark is trusted |
-| `IXOSS_UPSTREAM_INFO_MAX_BYTES` | `10485760` | bounds `info`'s whole-object fallback; the ranged path is unaffected |
+| `IXOSS_ROOT` | *(required)* | directory images are served from |
 | `IXOSS_CACHE_DIR` | *(unset — no cache)* | where transcoded results are stored |
 | `IXOSS_STYLES` | *(unset)* | JSON file mapping style names to `image/...` chains; loaded and validated at startup |
 | `IXOSS_PASSTHROUGH_NON_IMAGES` | `false` | allow the original-object endpoint to serve bytes that are not a registered image type; otherwise return `415` |
@@ -491,8 +403,7 @@ unchanged:
 | `IXOSS_TRUSTED_SIGNATURES` | *(unset)* | signature strings accepted verbatim |
 | `IXOSS_LOG_LEVEL` | `info` | debug / info / warn / error |
 
-`IXOSS_ROOT` and `IXOSS_UPSTREAM` are mutually exclusive: setting both, or
-neither, fails at startup rather than picking one.
+`IXOSS_ROOT` is required and must name an existing directory.
 
 Saved styles use `?x-oss-process=style/thumb` (not combined with other actions).
 For example, set `IXOSS_STYLES=/etc/ixoss/styles.json` and put this in the file:
@@ -561,9 +472,8 @@ every request except `/healthz` must carry a valid `x-ixoss-signature`, or it
 gets `403` with `{"Code":"AccessDenied","Message":"Forbidden"}`. With either one
 unset, nothing is checked and the server says so once at startup.
 
-Off by default is defensible in local mode and much less so in
-[upstream mode](#upstream-mode), where an unsigned instance is a way for anyone
-who can reach the port to drive the origin.
+An unsigned instance lets anyone who can reach the port transform any object
+under `IXOSS_ROOT`. Configure signing when access needs to be restricted.
 
 ```sh
 IXOSS_KEY=$(openssl rand -hex 32) IXOSS_SALT=$(openssl rand -hex 32) ixoss
@@ -693,7 +603,9 @@ internal/timeout/        the one function iXoSS needed from imgproxy's server pa
    accepts a URL and downloads it, which is what pulls in `imagedata.Factory`
    and the fetcher/storage tree.
 
-8. **Env prefix `IMGPROXY_*` → `IXOSS_*`** (30 variables).
+8. **Env prefix `IMGPROXY_*` → `IXOSS_*`.** The unused source-URL allowlist
+   and its `IXOSS_ALLOWED_SOURCES` configuration were removed; source objects
+   are resolved only under `IXOSS_ROOT`.
 
 9. **Tests not carried over.** They depend on `testify` and a large `testdata`
    tree.
@@ -794,22 +706,24 @@ preferring because it is the face OSS names by default, so `type_` resolves to
 the same font iXoSS's mapping expects; `font-noto-cjk` is a large package and
 can be dropped if the text will never be Chinese.
 
-A multi-stage image:
+Build the repository's [Dockerfile](Dockerfile), which uses Go 1.26 on Alpine
+3.23 for compilation and Alpine 3.23 for the runtime:
 
-```dockerfile
-FROM golang:1.26-alpine3.23 AS build
-RUN apk add --no-cache build-base pkgconf vips-dev vips-heif vips-jxl
-WORKDIR /src
-COPY . .
-RUN CGO_ENABLED=1 go build -o /out/ixoss ./cmd/ixoss
-
-FROM alpine:3.23
-RUN apk add --no-cache vips vips-heif vips-jxl font-wqy-zenhei
-COPY --from=build /out/ixoss /usr/local/bin/ixoss
-ENV IXOSS_ROOT=/srv/images IXOSS_BIND=0.0.0.0:8080
-EXPOSE 8080
-ENTRYPOINT ["ixoss"]
+```sh
+docker build -t ixoss:alpine3.23 .
+mkdir -p images
+docker run --rm -p 8080:8080 \
+  -v "$PWD/images:/srv/images:ro" \
+  --mount type=volume,source=ixoss-cache,target=/var/cache/ixoss \
+  ixoss:alpine3.23
 ```
+
+The image includes AVIF and JPEG XL modules, Chinese watermark fonts and the
+license notices. It runs as UID/GID 10001; source files must be readable by that
+user. The default disk cache lives at `/var/cache/ixoss`; if you bind-mount a
+cache directory instead of using the named volume above, make it writable by
+UID 10001. Override configuration with Docker's `-e IXOSS_...` options.
+The build context includes only Go sources, module files and license notices.
 
 Ubuntu 24.04:
 
@@ -877,31 +791,6 @@ cache                       MISS 223ms -> HIT 1.4ms
 singleflight                12 concurrent identical requests -> 1 MISS + 11 COALESCED,
                             1 cache entry (not 12 encodes)
 HEAD                        200, no body;  POST -> 405
-```
-
-Upstream mode, against a static origin serving the same fixtures — the
-comparison that matters is against local mode, since the point is that nothing
-above the source changes:
-
-```
-info parity                 9 fixtures (jpg png webp gif avif tiff bmp, EXIF
-                            IFD1, 200-frame GIF) — responses byte-identical to
-                            local mode
-transform parity            resize / crop / rotate / blur / circle / quality /
-                            format,png / format,webp — output byte-identical
-average-hue, watermark      identical; the untouched source is the origin's
-                            bytes unchanged
-info cost, 5 KB jpg         1 origin request (ranged)
-info cost, 40 MB jpg        1 origin request (ranged), RSS flat over 30 repeats
-info cost, SOF past 64 KiB  2 origin requests — the documented fallback
-cache                       MISS then HIT; the HIT costs one HEAD, no GET
-singleflight                12 concurrent identical -> 12 HEAD + 1 GET
-peak RSS, 40 MB source      163 MB upstream vs 154 MB local, 3 transcodes
-TTL fallback (no ETag)      MISS, HIT, then MISS again past the TTL
-origin down / slow / 3xx    502 / 504 / 502, and the body never names the origin
-origin 403,429,500,503      passed through with the origin's own status
-signing                     unsigned 403, signed 200, /healthz still exempt
-both ROOT and UPSTREAM      refused at startup; neither, also refused
 ```
 
 Resize, against a 400×300 source, checking the decoded output not just the status:

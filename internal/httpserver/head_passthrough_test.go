@@ -19,6 +19,7 @@ import (
 	"github.com/vndroid/iXoSS/internal/processing"
 	"github.com/vndroid/iXoSS/internal/security"
 	"github.com/vndroid/iXoSS/internal/singleflight"
+	"github.com/vndroid/iXoSS/internal/source"
 )
 
 func TestRecoveredFlightPanicIsHTTP500(t *testing.T) {
@@ -70,7 +71,7 @@ func TestOriginalNonImagePolicy(t *testing.T) {
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		s := &Server{cfg: Config{Root: dir}}
 		var err error
-		s.src, _, err = newSource(s.cfg)
+		s.src, err = source.NewLocal(s.cfg.Root)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,40 +89,6 @@ func TestOriginalNonImagePolicy(t *testing.T) {
 		}
 		if method == http.MethodGet && !strings.Contains(w.Body.String(), "not an image") {
 			t.Errorf("passthrough GET lost the original bytes")
-		}
-	}
-}
-
-func TestUpstreamProcessedHeadMissUsesRange(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "a.jpg"), testJPEG(t, 20, 20, 200<<10), 0600); err != nil {
-		t.Fatal(err)
-	}
-	origin, _, ranges := fileOrigin(t, dir)
-	s := newUpstreamServer(t, origin.URL, 100<<20, 10<<20)
-	w := httptest.NewRecorder()
-	s.ServeHTTP(w, httptest.NewRequest(http.MethodHead,
-		"/a.jpg?x-oss-process=image/resize,w_10/format,png", nil))
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d: %s", w.Code, w.Body.String())
-	}
-	if len(*ranges) != 2 || (*ranges)[0] != "" || (*ranges)[1] == "" {
-		t.Fatalf("origin requests must be HEAD then ranged GET; ranges = %v", *ranges)
-	}
-}
-
-func TestUpstreamOriginalRejectsHTML(t *testing.T) {
-	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte("<html>listing</html>"))
-	}))
-	defer origin.Close()
-	s := newUpstreamServer(t, origin.URL, 100<<20, 10<<20)
-	for _, method := range []string{http.MethodGet, http.MethodHead} {
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, httptest.NewRequest(method, "/directory/", nil))
-		if w.Code != http.StatusUnsupportedMediaType {
-			t.Errorf("upstream %s: status = %d, want 415", method, w.Code)
 		}
 	}
 }

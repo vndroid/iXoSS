@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -25,6 +24,9 @@ var _ Source = (*Local)(nil)
 
 // NewLocal opens root, which must be an existing directory.
 func NewLocal(root string) (*Local, error) {
+	if root == "" {
+		return nil, fmt.Errorf("source: root directory is required")
+	}
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
@@ -70,15 +72,8 @@ func (l *Local) Stat(_ context.Context, urlPath string) (*Info, error) {
 	return &Info{
 		Key:     name,
 		Size:    st.Size(),
-		Version: strconv.FormatInt(st.ModTime().UnixNano(), 10),
+		ModTime: st.ModTime().UnixNano(),
 	}, nil
-}
-
-// OpenHeader is Open. A local read is already a seek and a 64 KiB copy, so
-// there is nothing for a prefix to save — the distinction only pays against a
-// network origin.
-func (l *Local) OpenHeader(ctx context.Context, urlPath string, _ int) (*Object, error) {
-	return l.Open(ctx, urlPath)
 }
 
 // Open resolves urlPath (the request's URL path, already decoded by net/http)
@@ -110,7 +105,7 @@ func (l *Local) Open(_ context.Context, urlPath string) (*Object, error) {
 	return newObject(Info{
 		Key:     name,
 		Size:    st.Size(),
-		Version: strconv.FormatInt(st.ModTime().UnixNano(), 10),
+		ModTime: st.ModTime().UnixNano(),
 	}, f, f), nil
 }
 

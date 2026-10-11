@@ -3,14 +3,12 @@ package security
 import (
 	"errors"
 	"fmt"
-	"regexp"
 
 	"github.com/vndroid/iXoSS/internal/ensure"
 	"github.com/vndroid/iXoSS/internal/env"
 )
 
 var (
-	IXOSS_ALLOWED_SOURCES    = env.URLPatterns("IXOSS_ALLOWED_SOURCES")
 	IXOSS_KEY                = env.HexSlice("IXOSS_KEY")
 	IXOSS_SALT               = env.HexSlice("IXOSS_SALT")
 	IXOSS_SIGNATURE_SIZE     = env.Int("IXOSS_SIGNATURE_SIZE")
@@ -25,11 +23,10 @@ var (
 
 // Config is the package-local configuration
 type Config struct {
-	AllowedSources    []*regexp.Regexp // List of allowed source URL patterns (empty = allow all)
-	Keys              [][]byte         // List of the HMAC keys
-	Salts             [][]byte         // List of the HMAC salts
-	SignatureSize     int              // Size of the HMAC signature in bytes
-	TrustedSignatures []string         // List of trusted signature sources
+	Keys              [][]byte // List of the HMAC keys
+	Salts             [][]byte // List of the HMAC salts
+	SignatureSize     int      // Size of the HMAC signature in bytes
+	TrustedSignatures []string // List of trusted signature sources
 
 	MaxSrcResolution            int // Maximum allowed source image resolution
 	MaxSrcFileSize              int // Maximum allowed source image file size in bytes
@@ -97,7 +94,6 @@ func LoadConfigFromEnv(c *Config) (*Config, error) {
 	c = ensure.Ensure(c, NewDefaultConfig)
 
 	err := errors.Join(
-		IXOSS_ALLOWED_SOURCES.Parse(&c.AllowedSources),
 		IXOSS_SIGNATURE_SIZE.Parse(&c.SignatureSize),
 		IXOSS_TRUSTED_SIGNATURES.Parse(&c.TrustedSignatures),
 

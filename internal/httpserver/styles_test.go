@@ -67,7 +67,7 @@ func TestStyleStartupValidation(t *testing.T) {
 }
 
 func TestStyleCacheKeyChangesWithDefinition(t *testing.T) {
-	info := &source.Info{Key: "/images/a.png", Size: 123, Version: "42"}
+	info := &source.Info{Key: "/images/a.png", Size: 123, ModTime: 42}
 	s := &Server{}
 	a, err := expandStyle("style/thumb", map[string]string{"thumb": "image/resize,w_200"})
 	if err != nil {
