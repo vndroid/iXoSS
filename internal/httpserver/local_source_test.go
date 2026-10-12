@@ -178,8 +178,11 @@ func TestCanonicalRedirectFiltersQuery(t *testing.T) {
 	for _, tc := range []struct{ target, location string }{
 		{"//?foo=1&bar=2", "/"},
 		{"/photo.jpg?foo=1", "/photo.jpg"},
-		{"//photo.jpg?foo=1&x-oss-process=image/info&x-ixoss-signature=abc", "/photo.jpg?x-ixoss-signature=abc&x-oss-process=image%2Finfo"},
-		{"//photo.jpg?x-oss-process=image/resize,w_4/format,png", "/photo.jpg?x-oss-process=image%2Fresize%2Cw_4%2Fformat%2Cpng"},
+		{"//photo.jpg?foo=1&x-oss-process=image/info&x-ixoss-signature=abc", "/photo.jpg?x-oss-process=image/info&x-ixoss-signature=abc"},
+		{"//photo.jpg?x-oss-process=image/resize,w_4/format,png", "/photo.jpg?x-oss-process=image/resize,w_4/format,png"},
+		{"//photo.jpg?x%2Doss%2Dprocess=image%2finfo&foo=1", "/photo.jpg?x%2Doss%2Dprocess=image%2finfo"},
+		{"//photo.jpg?x-oss-process=image/info&x-oss-process=image/format,png&foo=1", "/photo.jpg?x-oss-process=image/info&x-oss-process=image/format,png"},
+		{"//photo.jpg?foo=1&x-oss-process=a%26b%23c%2Bd%20e&x-ixoss-signature=a_b-c", "/photo.jpg?x-oss-process=a%26b%23c%2Bd%20e&x-ixoss-signature=a_b-c"},
 		{"//evil.example//photo.jpg?redirect=https://evil.example", "/evil.example/photo.jpg"},
 		{"//space%20name%3F%23.jpg?foo=1", "/space%20name%3F%23.jpg"},
 	} {
@@ -191,6 +194,26 @@ func TestCanonicalRedirectFiltersQuery(t *testing.T) {
 			}
 			if w.Body.Len() != 0 {
 				t.Error("redirect unexpectedly returned an image body")
+			}
+		}
+	}
+}
+
+func TestInvalidQueryDoesNotRedirect(t *testing.T) {
+	s := newLimitedServer(t, t.TempDir(), 1024)
+	for _, query := range []string{
+		"x-oss-process=%zz", "x-oss-process=%2", "unknown=%zz",
+		"x-oss-process=image/info;foo=1", "x-oss-process=image/info\r\nLocation:/evil",
+		"x-oss-process=image/info#fragment", "x-oss-process=image info",
+		"x-oss-process=图片", "x-oss-process=\"image/info\"",
+	} {
+		for _, path := range []string{"/healthz", "//photo.jpg"} {
+			r := httptest.NewRequest(http.MethodGet, path, nil)
+			r.URL.RawQuery = query
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, r)
+			if w.Code != http.StatusBadRequest || w.Header().Get("Location") != "" {
+				t.Errorf("%s?%q: status=%d Location=%q", path, query, w.Code, w.Header().Get("Location"))
 			}
 		}
 	}

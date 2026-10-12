@@ -251,24 +251,21 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// /healthz is exempt: it reports whether libvips is alive and reveals nothing
 	// about the objects being served, and a load balancer has no key.
 	normalizedPath := collapseSlashes(r.URL.Path)
+	query, queryChanged, err := filterQuery(r.URL.RawQuery)
+	if err != nil {
+		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", "invalid URL query")
+		return
+	}
 	if normalizedPath != "/healthz" {
 		if err := s.verifySignature(r); err != nil {
 			s.failSignature(w, r, err)
 			return
 		}
 	}
-	query := r.URL.Query()
-	redirect := normalizedPath != r.URL.Path
-	for key := range query {
-		if key != ossprocess.QueryKey && key != SignatureQueryKey {
-			query.Del(key)
-			redirect = true
-		}
-	}
-	if redirect {
-		// Build an origin-relative Location from decoded path/query values. This
-		// escapes special characters and cannot redirect to a different host.
-		target := &url.URL{Path: normalizedPath, RawQuery: query.Encode()}
+	if normalizedPath != r.URL.Path || queryChanged {
+		// Escape the path, but retain validated query fragments verbatim. The
+		// origin-relative Location cannot redirect to a different host.
+		target := &url.URL{Path: normalizedPath, RawQuery: query}
 		w.Header().Set("Location", target.RequestURI())
 		w.WriteHeader(http.StatusPermanentRedirect)
 		return
@@ -313,6 +310,38 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.serveProcessed(w, r, chain, effective)
 	}
+}
+
+// filterQuery validates URI query syntax and escapes before retaining supported
+// pairs in their original order and spelling. It never reinserts decoded data
+// into Location, so encoded separators remain encoded.
+func filterQuery(raw string) (string, bool, error) {
+	for i := range len(raw) {
+		c := raw[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
+			strings.ContainsRune("-._~!$&'()*+,;=:@/?%", rune(c))) {
+			return "", false, fmt.Errorf("invalid query character")
+		}
+	}
+	if _, err := url.ParseQuery(raw); err != nil {
+		return "", false, err
+	}
+	var kept []string
+	for _, pair := range strings.Split(raw, "&") {
+		if pair == "" {
+			continue
+		}
+		key, _, _ := strings.Cut(pair, "=")
+		name, err := url.QueryUnescape(key)
+		if err != nil {
+			return "", false, err
+		}
+		if name == ossprocess.QueryKey || name == SignatureQueryKey {
+			kept = append(kept, pair)
+		}
+	}
+	filtered := strings.Join(kept, "&")
+	return filtered, filtered != raw, nil
 }
 
 // collapseSlashes preserves all path segments, including dots and a trailing

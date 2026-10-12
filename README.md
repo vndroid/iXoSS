@@ -43,9 +43,13 @@ Requests with repeated path slashes or unsupported query parameters receive a
 `308` redirect to a canonical URL: `//` becomes `/`, and
 `//sub//photo.jpg?foo=1` becomes `/sub/photo.jpg`. Only `x-oss-process` and
 `x-ixoss-signature` query parameters are retained; invalid processing options
-still return errors. Signatures cover the path with repeated slashes collapsed,
-so they remain valid after the redirect. Re-sign older URLs whose signatures
-were generated from paths containing repeated slashes.
+still return errors. Retained query pairs keep their original order and URL
+encoding, including readable `/` and commas. Required escapes such as `%26`,
+`%23` and `%2B` remain intact. Malformed query encoding, unescaped semicolons or
+characters invalid in a URI query receive `400`. Signatures cover the path with
+repeated slashes collapsed, so they remain valid after the redirect. Re-sign
+older URLs whose signatures were generated from paths containing repeated
+slashes.
 
 ### Supported actions
 
