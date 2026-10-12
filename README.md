@@ -61,7 +61,8 @@ versioned URLs, `public, max-age=31536000, immutable` can be configured explicit
 Previously cached responses keep their old lifetime until they expire or are
 purged; changing the server policy does not evict browser or CDN caches.
 
-Original files use weak ETags based on file identity, size and nanosecond mtime;
+Original files and unchanged resize/format responses use weak ETags based on
+file identity, size and nanosecond mtime;
 replacing a file must update its mtime. Processed images, info JSON and
 average-hue results use strong SHA-256 ETags of the actual response bytes.
 GET and HEAD accept `If-None-Match` (including weak tags, lists and `*`) and
@@ -69,11 +70,38 @@ return a bodyless `304` when the selected representation matches. Authorization,
 parameter validation and resource checks happen before conditional responses.
 `304` retains the ETag, cache policy and, for `format,auto`, `Vary: Accept`.
 
-A processed HEAD cache miss remains cheap: it does not encode an image and
-omits the ETag and output length. Only `If-None-Match: *` can produce a `304`
+A HEAD request that requires processing and misses the cache remains cheap:
+it does not encode an image and omits the ETag and output length. Only `If-None-Match: *` can produce a `304`
 in that case after the existing source checks. Cached HEAD uses the same
 content ETag as GET. Conditional requests save response bandwidth; an uncached
 processed GET still needs to produce the output to calculate its content ETag.
+
+### Unchanged image requests
+
+A chain containing only `resize` and/or `format` returns the original bytes when
+all requested actions preserve the source dimensions and format. The check runs
+before disk cache access: it ignores existing transformed entries, does not
+encode or write a new entry, and reports `X-IXoSS-Cache: BYPASS`.
+
+For a 700x500 JPEG, `image/resize,w_700`, `image/resize,w_700,h_500`,
+`image/format,jpg` and `image/resize,w_700/format,jpg` all transmit the original.
+A resize blocked by the default `limit_1` rule also qualifies. `format,auto`
+qualifies only when its negotiated format (or source fallback) is unchanged;
+it still sends `Vary: Accept`. The `format,gif` compatibility rule continues to
+preserve non-GIF source formats.
+
+Quality, crop, rotation, watermark and all other actions keep the normal
+processing path, even if the output dimensions match. Passthrough retains the
+original metadata, color profile, orientation and animation bytes instead of
+applying the processor's default cleanup, quality or preferred-format settings.
+GET and HEAD share the original file's weak ETag and length, including `304`
+conditional responses. Parameter/signature validation, source byte limits and
+known source pixel limits still apply.
+
+Dimensions normally come from the header. Containers without a supported header
+parser may require reading the source and loading metadata to confirm the size;
+this does not transcode the image. If an unchanged result cannot be confirmed,
+the request continues through the regular processing path.
 
 ### Supported actions
 

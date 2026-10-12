@@ -286,13 +286,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
 			return
 		}
-		// Grammar is fine; now ask libvips whether it can actually produce the
-		// requested format. Split from Validate because that one must stay callable
-		// without a live libvips — see ossprocess.Validate.
-		if err := chain.CheckEncoders(); err != nil {
-			s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
-			return
-		}
 	}
 	if normalizedPath != r.URL.Path || queryChanged {
 		// Escape the path, but retain validated query fragments verbatim. The
@@ -423,8 +416,6 @@ func (s *Server) failSignature(w http.ResponseWriter, r *http.Request, err error
 const originalSniffBytes = 32 << 10
 
 func (s *Server) serveOriginal(w http.ResponseWriter, r *http.Request) {
-	head := r.Method == http.MethodHead
-
 	// Opening a file is cheap; Peek below reads only the format detection window.
 	obj, err := s.src.Open(r.Context(), r.URL.Path)
 	if err != nil {
@@ -439,26 +430,31 @@ func (s *Server) serveOriginal(w http.ResponseWriter, r *http.Request) {
 		s.failSource(w, r, perr)
 		return
 	}
+	mime := "application/octet-stream"
 	if t, terr := imagetype.Detect(bytes.NewReader(b), "", ""); terr == nil {
-		w.Header().Set("Content-Type", t.Mime())
+		mime = t.Mime()
 	} else if !s.cfg.PassthroughNonImages {
 		s.fail(w, r, http.StatusUnsupportedMediaType, "InvalidArgument", "source is not a supported image")
 		return
-	} else {
-		w.Header().Set("Content-Type", "application/octet-stream")
 	}
+	s.writeOriginal(w, r, &obj.Info, mime, obj)
+}
 
-	w.Header().Set("Content-Length", strconv.FormatInt(obj.Size, 10))
+// writeOriginal shares headers and conditional requests between the original
+// endpoint and resize/format requests that can transmit the source unchanged.
+func (s *Server) writeOriginal(w http.ResponseWriter, r *http.Request, info *source.Info, mime string, body io.WriterTo) {
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
 	// File identity is a weak validator, not a digest of the response bytes.
-	etag := `W/"` + s.cacheKey(&obj.Info, "original").Hash() + `"`
+	etag := `W/"` + s.cacheKey(info, "original").Hash() + `"`
 	if notModified(w, r, etag) {
 		return
 	}
-	if head {
+	if r.Method == http.MethodHead {
 		return
 	}
-	if _, err := obj.WriteTo(w); err != nil {
+	if _, err := body.WriteTo(w); err != nil {
 		slog.Debug("write failed", "path", r.URL.Path, "error", err)
 	}
 }
@@ -709,6 +705,16 @@ func (s *Server) serveProcessed(w http.ResponseWriter, r *http.Request, chain *o
 		negotiated = negotiateFormat(r.Header.Get("Accept"), vips.SupportsSave)
 		accept = acceptKey(negotiated)
 		varyOnAccept(w)
+	}
+
+	if chain.CanPassthrough() && s.tryServeOriginal(w, r, chain, negotiated) {
+		return
+	}
+
+	// A matching request needs no encoder; actual transformations still do.
+	if err := chain.CheckEncoders(); err != nil {
+		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
+		return
 	}
 
 	key := s.cacheKey(info, raw+"\x00"+accept)
