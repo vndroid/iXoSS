@@ -91,6 +91,8 @@ func run() error {
 	hc.MaxSourceBytes = int64(envInt("IXOSS_MAX_SOURCE_BYTES", int(hc.MaxSourceBytes)))
 	hc.ProcessTimeout = time.Duration(envInt("IXOSS_PROCESS_TIMEOUT_MS", int(hc.ProcessTimeout/time.Millisecond))) * time.Millisecond
 	hc.CacheControl = env("IXOSS_CACHE_CONTROL", hc.CacheControl)
+	hc.SourceArchive = env("IXOSS_SOURCE_ARCHIVE", "")
+	hc.SourceURL = env("IXOSS_SOURCE_URL", "")
 	hc.Verifier = checker
 	hc.HeaderChecker = checker
 	hc.Evict = cache.EvictConfig{

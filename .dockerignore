@@ -14,3 +14,10 @@
 !third_party/
 !third_party/imgproxy/
 !third_party/imgproxy/**
+!third_party/licenses/
+!third_party/licenses/**
+!tools/
+!tools/*.py
+!README.md
+!DIFF.md
+!compose.example.yaml

@@ -83,6 +83,11 @@ type Config struct {
 	ProcessTimeout time.Duration
 	// CacheControl is sent with successful image responses.
 	CacheControl string
+	// SourceArchive is a trusted, operator-provided archive of this build's source.
+	// When set, SourceArchivePath serves it without an image-request signature.
+	SourceArchive string
+	// SourceURL offers corresponding source externally when no archive is supplied.
+	SourceURL string
 	// Evict bounds the disk cache. Zero Interval leaves it unbounded.
 	Evict cache.EvictConfig
 	// Verifier checks request signatures. Nil, or one that reports signing is
@@ -186,6 +191,9 @@ type Server struct {
 // and that key is fetched exactly the way the image being served is — through
 // the same traversal and symlink checks on disk.
 func New(cfg Config, newProcessor func(auximageprovider.Provider) (*processing.Processor, error)) (*Server, error) {
+	if err := validateSourceOffer(cfg); err != nil {
+		return nil, err
+	}
 	stop := make(chan struct{})
 	styles, err := loadStyles(cfg.StylesFile)
 	if err != nil {
@@ -244,6 +252,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.setSourceOffer(w)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -258,6 +267,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query, queryChanged, err := filterQuery(r.URL.RawQuery)
 	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", "invalid URL query")
+		return
+	}
+	if s.cfg.SourceArchive != "" && normalizedPath == SourceArchivePath {
+		s.serveSourceArchive(w, r)
 		return
 	}
 	if normalizedPath != "/healthz" {

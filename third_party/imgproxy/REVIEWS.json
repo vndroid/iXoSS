@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "baseline": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c",
+  "intervals": [
+    {
+      "from": {
+        "version": "v4.0.15",
+        "commit": "279f693fe6a284290508caa9e201887472828ffe"
+      },
+      "to": {
+        "version": "v4.0.17",
+        "commit": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c"
+      },
+      "date": "2026-10-13",
+      "scope": "All commits in v4.0.15..v4.0.17 assessed for applicability to this port; not a comprehensive audit of older history, current master or native dependencies.",
+      "complete": true,
+      "commits": [
+        {
+          "commit": "afe417942eaff5603630b0bb1a4b79f884eeeea7",
+          "subject": "Add forwardPorts to devcontainer (auto-forward doesn't always work)",
+          "upstream_paths": [
+            ".devcontainer/devcontainer.json"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream development-container or GitHub cache configuration only; no source fix to port. iXoSS maintains independent CI and build caches.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "9d364dabf1fd85fedf96cf6d9d3d9a87403b05d3",
+          "subject": "Update base Docker image",
+          "upstream_paths": [
+            ".devcontainer/docker-compose.yml",
+            ".github/workflows/container-info.yml",
+            "docker/Dockerfile"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream switches imgproxy-base v4.0.8 to v4.0.9. This project builds its own Alpine 3.23 image, not that base; this does not establish that our native packages are vulnerability-free.",
+          "dependencies": [],
+          "evidence": [
+            "Compared upstream docker/Dockerfile and container-info/devcontainer changes with local Dockerfile."
+          ]
+        },
+        {
+          "commit": "a821b6a4cb07a1bf2bb9077431d1c1e734d79917",
+          "subject": "Fix segfaults during invalid ICO load",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "testdata/ico-bad1.ico",
+            "testdata/ico-bad2.ico",
+            "testdata/ico-bad3.ico",
+            "vips/icoload.c",
+            "vips/icoload_test.go",
+            "vips/vips_test.go"
+          ],
+          "local_paths": [
+            "internal/vips/icoload.c",
+            "internal/vips/icoload_test.go"
+          ],
+          "status": "ported",
+          "reason": "Allocation cap/failure handling and corrected BMP payload bound are implemented together, preserving local cleanup.",
+          "dependencies": [],
+          "evidence": [
+            "c828340: full build/vet/staticcheck/internal tests passed (VERIFY OK).",
+            "c828340: malformed and valid ICO cases passed go test -asan ./internal/vips -run TestIco -count=1; leak detection disabled."
+          ],
+          "local_commit": "c82834093b5a02413d0d8e74aafed3d3cd0e3b1d"
+        },
+        {
+          "commit": "d06b7bfb8336a90b933ab5c122c0cf020027f8e9",
+          "subject": "Update deps",
+          "upstream_paths": [
+            "go.mod",
+            "go.sum"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Changed Go module versions belong to excluded cloud/telemetry/tooling dependencies. The only project module, go-xmp v1.0.0, is unchanged. Native dependency security must be assessed separately.",
+          "dependencies": [],
+          "evidence": [
+            "Compared complete upstream go.mod/go.sum diff with local go.mod/go.sum."
+          ]
+        },
+        {
+          "commit": "98d9900b1dcbde2f1d99521a88fc8b2c558c0d34",
+          "subject": "Bump version to 4.0.16",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "version/version.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream release bookkeeping; no runtime behavior change to the port. The audit baseline is recorded separately from the iXoSS release version.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "226619c3ae211afd250379e74e45f2c6fc0b9001",
+          "subject": "Improve caching in CI",
+          "upstream_paths": [
+            ".github/workflows/ci.yml",
+            ".github/workflows/govulncheck.yml",
+            ".github/workflows/test-svg.yml"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream development-container or GitHub cache configuration only; no source fix to port. iXoSS maintains independent CI and build caches.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "39fd9e844a8a46084161502e993d5a3c16ccf28d",
+          "subject": "fix: ICO BMP payload size check to prevent out-of-bounds reads on truncated headers",
+          "upstream_paths": [
+            "testdata/ico-bad4.ico",
+            "vips/icoload.c",
+            "vips/icoload_test.go"
+          ],
+          "local_paths": [
+            "internal/vips/icoload.c",
+            "internal/vips/icoload_test.go"
+          ],
+          "status": "ported",
+          "reason": "Allocation cap/failure handling and corrected BMP payload bound are implemented together, preserving local cleanup.",
+          "dependencies": [
+            "a821b6a4cb07a1bf2bb9077431d1c1e734d79917"
+          ],
+          "evidence": [
+            "c828340: full build/vet/staticcheck/internal tests passed (VERIFY OK).",
+            "c828340: malformed and valid ICO cases passed go test -asan ./internal/vips -run TestIco -count=1; leak detection disabled."
+          ],
+          "local_commit": "c82834093b5a02413d0d8e74aafed3d3cd0e3b1d"
+        },
+        {
+          "commit": "a64713ba3a4104384b424f8124ddc219257f0b3c",
+          "subject": "Update changelog",
+          "upstream_paths": [
+            "CHANGELOG.md"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream release bookkeeping; no runtime behavior change to the port. The audit baseline is recorded separately from the iXoSS release version.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "da8cf367317d949fc35af0bf4d999c5cb247b91a",
+          "subject": "Fix cache key generation in CI",
+          "upstream_paths": [
+            ".github/workflows/ci.yml",
+            ".github/workflows/govulncheck.yml",
+            ".github/workflows/test-svg.yml"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream development-container or GitHub cache configuration only; no source fix to port. iXoSS maintains independent CI and build caches.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c",
+          "subject": "Bump version to 4.0.17",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "version/version.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream release bookkeeping; no runtime behavior change to the port. The audit baseline is recorded separately from the iXoSS release version.",
+          "dependencies": [],
+          "evidence": []
+        }
+      ]
+    }
+  ],
+  "prior_evidence": [
+    {
+      "commit": "6f56c3a1dcc5f963ee527b8a9ebd0b2bcae6ca33",
+      "status": "already_present",
+      "reason": "BMP palette safety fix; bmpload.c matches v4.0.17 byte for byte before the local notice.",
+      "local_paths": [
+        "internal/vips/bmpload.c"
+      ],
+      "evidence": [
+        "Raw implementation equals the fixed v4.0.17 upstream source after removing only the added modification notice."
+      ],
+      "local_commit": "c82834093b5a02413d0d8e74aafed3d3cd0e3b1d"
+    },
+    {
+      "commit": "60d367c8deb20aa514afeb8f7b21cef7e53085ed",
+      "status": "already_present",
+      "reason": "BMP RLE bpp validation; bmpload.c matches v4.0.17 byte for byte before the local notice.",
+      "local_paths": [
+        "internal/vips/bmpload.c"
+      ],
+      "evidence": [
+        "Raw implementation equals the fixed v4.0.17 upstream source after removing only the added modification notice."
+      ],
+      "local_commit": "c82834093b5a02413d0d8e74aafed3d3cd0e3b1d"
+    }
+  ]
+}

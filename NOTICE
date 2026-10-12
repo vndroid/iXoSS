@@ -52,6 +52,12 @@ the imgproxy project:
     Licensed under the Apache License, Version 2.0
 
 A copy of the Apache License, Version 2.0 is provided in LICENSE-imgproxy.
+The original upstream NOTICE at the audited SHA is retained verbatim in
+third_party/imgproxy/NOTICE.upstream. Its dependency inventory describes that
+upstream distribution, not the exact dependency set of this Alpine image.
+It is retained conservatively, including declarations for unused components.
+Modified port files carry individual modification notices; only the added
+notice prefix is excluded from the normalized source comparison.
 
 The maintained port is audited against imgproxy v4.0.17, commit
 2c89e4ebff3384caf6752db2ec861b4ef5fe675c. This is a comparison and security
@@ -105,6 +111,20 @@ libvips
   iXoSS links against libvips dynamically via cgo. libvips in turn loads
   libheif, libaom/libdav1d, libjxl, libwebp, libjpeg-turbo, libpng and others,
   each under its own license. See your libvips build for the exact set.
+  Upstream third-party notices and license texts are in NOTICE.upstream.
+  The runtime image records its installed Alpine package versions, origins,
+  license identifiers and build commit metadata under /usr/share/doc/ixoss/.
+  Distribution guidance and source locations are in third_party/licenses/README.md.
+
+WenQuanYi Zen Hei 0.9.46
+  Font distributed as a separate file in the Docker image, not embedded into
+  the iXoSS binary. Original COPYING, AUTHORS and README are retained in
+  third_party/licenses/WenQuanYi-*. Source archive location is recorded there.
+
+Go standard library
+  The original BSD-style license and patent grant are retained in
+  third_party/licenses/LICENSE-Go and PATENTS-Go. Docker additionally copies
+  these files from the actual build toolchain into the runtime image.
 
 ================================================================================
 Go dependencies
@@ -118,3 +138,4 @@ github.com/trimmer-io/go-xmp
   The only module in go.mod. It is compiled into the binary, so it is
   distributed with it; Apache-2.0 is compatible with AGPL-3.0 the same way
   imgproxy's code is.
+  The original module license is retained in third_party/licenses/LICENSE-go-xmp.

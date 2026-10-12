@@ -1,3 +1,7 @@
+// Derived from imgproxy (Copyright imgproxy contributors), Apache-2.0.
+// Modified by iXoSS, including import paths and/or implementation.
+// See LICENSE-imgproxy, NOTICE and third_party/imgproxy/UPSTREAM.json.
+
 // Package imagedata carries an image's bytes together with its detected format.
 //
 // This is a much-reduced stand-in for imgproxy's package of the same name.

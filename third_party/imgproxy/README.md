@@ -26,6 +26,12 @@ including the three local-only files. It is comparison evidence; module-path
 rewriting is intentionally absent from that diff.
 Tests are excluded from the source count, not from verification.
 
+Ported files now carry a common iXoSS modification notice. Raw local hashes
+include it; the comparison removes only that exact prefix before the import
+rewrite. Original upstream notices and other comments are not removed.
+`NOTICE.upstream` retains the original upstream NOTICE verbatim, with its hash
+recorded in the lock. Its dependency list is historical, not our image inventory.
+
 For the same audited directories, v4.0.14 and v4.0.15 have identical source.
 Between v4.0.15 and v4.0.17 the only production-source changes in those
 directories are the two ICO security fixes listed below. Changes to upstream
@@ -96,6 +102,35 @@ python3 tools/audit_imgproxy.py --upstream ../imgproxy-reference
 Without --upstream, the command checks local file hashes against the recorded
 audit; CI runs this check so changes to the port require updating its record.
 With --upstream it also compares upstream hashes and classifications.
+It also verifies release tags, the complete reviewed commit interval and its
+changed-file lists against that checkout. Offline CI validates record structure,
+source hashes, notice integrity, counts and pending/completed review consistency;
+it cannot prove that a human applicability decision is correct.
 After reviewing an intentional source change, add --write to regenerate the
 file audit. A future baseline update must explicitly change the pinned version,
 commit, patch history and this document; --write does not choose a new version.
+
+## Release review records
+
+`UPSTREAM.json` separates the fixed source baseline from review progress and
+maps copied files and rewritten/removed components to their local counterparts.
+`REVIEWS.json` records every commit in v4.0.15..v4.0.17, including dependencies,
+applicability reasons and validation evidence for the two adopted ICO patches.
+Earlier BMP fixes are recorded as prior evidence, not a completed older review
+interval. This is not a comprehensive audit of older history or native packages.
+
+To prepare a later release review using a temporary upstream checkout:
+
+```sh
+python3 tools/review_imgproxy.py --upstream ../imgproxy-reference \
+  --from-ref v4.0.17 --to-ref NEW_RELEASE > review-candidates.json
+python3 -m unittest discover -s tools -p 'test_*.py'
+```
+
+Replace NEW_RELEASE with the selected tag. The report resolves full SHAs and
+includes every commit, even unmapped files, without applying patches or deciding
+applicability. Review release notes, complete diffs, callers and dependencies.
+Use `ported`, `already_present`, `not_applicable`, `pending_analysis`,
+`pending_port` or `pending_validation`, recording reasons and regression evidence.
+Keep an interval incomplete while any decision is pending. Updating the review
+cursor does not change the source baseline or make a partial port a pure release.

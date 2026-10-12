@@ -91,7 +91,9 @@ jobs:
           cache: false
 
       - name: imgproxy source lock
-        run: python3 tools/audit_imgproxy.py
+        run: |
+          python3 tools/audit_imgproxy.py
+          python3 -m unittest discover -s tools -p 'test_*.py'
 
       - name: gofmt
         run: |

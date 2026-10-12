@@ -3,5 +3,7 @@
 .claude/
 .codex/
 /cache/
+__pycache__/
+*.pyc
 /ixoss
 /AGENTS.md

@@ -19,6 +19,9 @@ services:
       IXOSS_CACHE_MAX_AGE_HOURS: "168"
       IXOSS_CACHE_EVICT_INTERVAL_MIN: "10"
       IXOSS_BIND: 0.0.0.0:8080
+      # The image supplies matching build source at /_ixoss/source.tar.gz.
+      # Standalone binaries can instead offer an exact source download URL:
+      # IXOSS_SOURCE_URL: https://example.com/releases/ixoss-source.tar.gz
     # Allow the HEIC encoder's NUMA memory policy calls.
     cap_add:
       - SYS_NICE
