@@ -43,7 +43,7 @@ func TestCanonicalRedirectAfterSigning(t *testing.T) {
 		{"/sub//./../photo.jpg", "/sub//./../photo.jpg", "/sub/./../photo.jpg"},
 		{"/missing///", "/missing///", "/missing/"},
 	} {
-		r := httptest.NewRequest(http.MethodGet, tc.target+"?v=1&x-ixoss-signature=abc", nil)
+		r := httptest.NewRequest(http.MethodGet, tc.target+"?x-ixoss-signature=abc", nil)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		if w.Code != http.StatusPermanentRedirect {
@@ -58,7 +58,7 @@ func TestCanonicalRedirectAfterSigning(t *testing.T) {
 		if v.gotMessage != tc.normalized || v.gotSignature != "abc" {
 			t.Errorf("signature checked against %q with %q", v.gotMessage, v.gotSignature)
 		}
-		if r.URL.Path != tc.raw || r.URL.Query().Get("v") != "1" {
+		if r.URL.Path != tc.raw || r.URL.Query().Get(SignatureQueryKey) != "abc" {
 			t.Error("original request was modified")
 		}
 	}
@@ -173,18 +173,16 @@ func TestRepeatedSlashesOverHTTP(t *testing.T) {
 	}
 }
 
-func TestCanonicalRedirectFiltersQuery(t *testing.T) {
+func TestCanonicalRedirectPreservesQuery(t *testing.T) {
 	s := newLimitedServer(t, t.TempDir(), 1024)
 	for _, tc := range []struct{ target, location string }{
-		{"//?foo=1&bar=2", "/"},
-		{"/photo.jpg?foo=1", "/photo.jpg"},
-		{"//photo.jpg?foo=1&x-oss-process=image/info&x-ixoss-signature=abc", "/photo.jpg?x-oss-process=image/info&x-ixoss-signature=abc"},
+		{"//", "/"},
+		{"//photo.jpg?x-oss-process=image/info&x-ixoss-signature=a%26b%23c%2Bd%20e", "/photo.jpg?x-oss-process=image/info&x-ixoss-signature=a%26b%23c%2Bd%20e"},
 		{"//photo.jpg?x-oss-process=image/resize,w_4/format,png", "/photo.jpg?x-oss-process=image/resize,w_4/format,png"},
-		{"//photo.jpg?x%2Doss%2Dprocess=image%2finfo&foo=1", "/photo.jpg?x%2Doss%2Dprocess=image%2finfo"},
-		{"//photo.jpg?x-oss-process=image/info&x-oss-process=image/format,png&foo=1", "/photo.jpg?x-oss-process=image/info&x-oss-process=image/format,png"},
-		{"//photo.jpg?foo=1&x-oss-process=a%26b%23c%2Bd%20e&x-ixoss-signature=a_b-c", "/photo.jpg?x-oss-process=a%26b%23c%2Bd%20e&x-ixoss-signature=a_b-c"},
-		{"//evil.example//photo.jpg?redirect=https://evil.example", "/evil.example/photo.jpg"},
-		{"//space%20name%3F%23.jpg?foo=1", "/space%20name%3F%23.jpg"},
+		{"//photo.jpg?x%2Doss%2Dprocess=image%2finfo", "/photo.jpg?x%2Doss%2Dprocess=image%2finfo"},
+		{"//photo.jpg?x-oss-process=image/info&x-oss-process=image/format,png", "/photo.jpg?x-oss-process=image/info&x-oss-process=image/format,png"},
+		{"//evil.example//photo.jpg", "/evil.example/photo.jpg"},
+		{"//space%20name%3F%23.jpg", "/space%20name%3F%23.jpg"},
 	} {
 		for _, method := range []string{http.MethodGet, http.MethodHead} {
 			w := httptest.NewRecorder()
@@ -195,6 +193,45 @@ func TestCanonicalRedirectFiltersQuery(t *testing.T) {
 			if w.Body.Len() != 0 {
 				t.Error("redirect unexpectedly returned an image body")
 			}
+		}
+	}
+}
+
+func TestInvalidParametersReturnBadRequest(t *testing.T) {
+	s := newLimitedServer(t, t.TempDir(), 1024)
+	src := &recordingPathSource{Source: s.src}
+	s.src = src
+	for _, query := range []string{
+		"foo=1", "x%2Dunknown=1", "foo", "=1",
+		"x-oss-process=image/info&foo=1",
+		"x-oss-process=video/info", "x-oss-process=image/unknown",
+		"x-oss-process=image/resize,w_bad", "x-oss-process=image/resize,z_1",
+		"x-oss-process=style/missing",
+	} {
+		for _, path := range []string{"/photo.jpg", "//photo.jpg"} {
+			for _, method := range []string{http.MethodGet, http.MethodHead} {
+				w := httptest.NewRecorder()
+				s.ServeHTTP(w, httptest.NewRequest(method, path+"?"+query, nil))
+				if w.Code != http.StatusBadRequest || w.Header().Get("Location") != "" {
+					t.Errorf("%s %s?%s: status=%d Location=%q", method, path, query, w.Code, w.Header().Get("Location"))
+				}
+				if method == http.MethodGet && !strings.Contains(w.Body.String(), `"Code":"InvalidArgument"`) {
+					t.Errorf("incorrect error body: %s", w.Body)
+				}
+				if method == http.MethodHead && w.Body.Len() != 0 {
+					t.Error("HEAD error returned a body")
+				}
+				if src.path != "" {
+					t.Error("invalid parameters must not open the source")
+				}
+			}
+		}
+	}
+	for _, path := range []string{"/healthz", "//healthz"} {
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path+"?foo=1", nil))
+		if w.Code != http.StatusBadRequest || w.Header().Get("Location") != "" {
+			t.Errorf("%s: status=%d Location=%q", path, w.Code, w.Header().Get("Location"))
 		}
 	}
 }

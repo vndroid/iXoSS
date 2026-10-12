@@ -262,6 +262,34 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var chain *ossprocess.Chain
+	var effective string
+	if normalizedPath != "/healthz" {
+		raw := r.URL.Query().Get(ossprocess.QueryKey)
+		// Signatures cover the public alias, not the configured expansion. Keep the
+		// effective chain separate so a style edit changes the cache key on restart.
+		effective, err = expandStyle(raw, s.styles)
+		if err != nil {
+			s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
+			return
+		}
+		chain, err = ossprocess.Parse(effective)
+		if err != nil {
+			s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
+			return
+		}
+		if err := chain.Validate(); err != nil {
+			s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
+			return
+		}
+		// Grammar is fine; now ask libvips whether it can actually produce the
+		// requested format. Split from Validate because that one must stay callable
+		// without a live libvips — see ossprocess.Validate.
+		if err := chain.CheckEncoders(); err != nil {
+			s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
+			return
+		}
+	}
 	if normalizedPath != r.URL.Path || queryChanged {
 		// Escape the path, but retain validated query fragments verbatim. The
 		// origin-relative Location cannot redirect to a different host.
@@ -272,31 +300,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if normalizedPath == "/healthz" {
 		s.health(w)
-		return
-	}
-
-	raw := r.URL.Query().Get(ossprocess.QueryKey)
-	// Signatures cover the public alias, not the configured expansion. Keep the
-	// effective chain separate so a style edit changes the cache key on restart.
-	effective, err := expandStyle(raw, s.styles)
-	if err != nil {
-		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
-		return
-	}
-	chain, err := ossprocess.Parse(effective)
-	if err != nil {
-		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
-		return
-	}
-	if err := chain.Validate(); err != nil {
-		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
-		return
-	}
-	// Grammar is fine; now ask libvips whether it can actually produce the
-	// requested format. Split from Validate because that one must stay callable
-	// without a live libvips — see ossprocess.Validate.
-	if err := chain.CheckEncoders(); err != nil {
-		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
 		return
 	}
 
@@ -336,9 +339,10 @@ func filterQuery(raw string) (string, bool, error) {
 		if err != nil {
 			return "", false, err
 		}
-		if name == ossprocess.QueryKey || name == SignatureQueryKey {
-			kept = append(kept, pair)
+		if name != ossprocess.QueryKey && name != SignatureQueryKey {
+			return "", false, fmt.Errorf("unsupported query parameter %q", name)
 		}
+		kept = append(kept, pair)
 	}
 	filtered := strings.Join(kept, "&")
 	return filtered, filtered != raw, nil
