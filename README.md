@@ -1229,16 +1229,36 @@ Modified imgproxy files carry individual modification notices. The original
 upstream NOTICE and additional Go/module/font license files are retained under
 `third_party/` and included in Docker images.
 
-The Docker image includes its actual build source, build instructions and
-vendored Go dependency in `/usr/share/doc/ixoss/source.tar.gz`. Every HTTP
-response advertises a source link; download it with GET `/_ixoss/source.tar.gz`
-(HEAD and range requests are also supported, without image-request signing).
+The runtime Docker image does not include a source archive. Export the actual
+build source, build instructions and vendored Go dependency for each release:
+
+```sh
+docker buildx build --target source-export \
+  --output type=local,dest=./dist .
+```
+
+Upload `dist/ixoss-source.tar.gz` as an asset of the matching tag's release,
+with clear download instructions for image recipients. Build the runtime
+image from the same unchanged source tree and builder image, using
+`--build-arg IXOSS_SOURCE_URL=https://github.com/vndroid/iXoSS/releases/download/<tag>/ixoss-source.tar.gz`,
+or set `IXOSS_SOURCE_URL` at deployment. The URL must offer the exact build's
+complete corresponding source free of charge and remain available as required
+by the license. A moving branch link or GitHub's automatic tag archive alone
+does not replace this build-input archive, which also contains vendored code.
+Publish the source before distributing the image or relying on the link for
+a required network source offer. Without a configured archive or URL, the
+program does not advertise a source offer.
+
+Alternatively, mount a matching source archive and configure
+`IXOSS_SOURCE_ARCHIVE` to its readable path. HTTP responses then advertise
+GET `/_ixoss/source.tar.gz` (HEAD and ranges also work without image signing).
 This path is reserved when `IXOSS_SOURCE_ARCHIVE` is configured. It reads only
 the configured trusted archive, never the image directory or private workspace.
 
 Standalone deployments can set `IXOSS_SOURCE_ARCHIVE` to a readable source
 archive or `IXOSS_SOURCE_URL` to an absolute HTTP(S) source download URL for
-that exact build. An archive takes precedence; both default to unset outside
-the image. Keep the source offer accessible through proxies and update it when
-changing the running code. See [distribution notices](third_party/licenses/README.md)
+that exact build. An archive takes precedence; both default to unset unless
+a URL was provided at image build time. Keep the source offer accessible through
+proxies and update it when changing the running code.
+See [distribution notices](third_party/licenses/README.md)
 for package inventories, original notices and native-library source obligations.

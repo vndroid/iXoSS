@@ -3,6 +3,7 @@
 .claude/
 .codex/
 /cache/
+/dist/
 __pycache__/
 *.pyc
 /ixoss

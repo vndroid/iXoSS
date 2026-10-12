@@ -22,14 +22,28 @@ Additional original notices are retained here:
 
 The Docker build packages the actual build inputs, including uncommitted source
 changes, licenses, build instructions and the vendored Go module, into
-`/usr/share/doc/ixoss/source.tar.gz`. It excludes Git data, private configuration,
+`/out/source.tar.gz` in the build stage. It excludes Git data, private configuration,
 images, caches and build artifacts. The archive is created before compilation
 from the same source tree used to build the executable.
 
-The image sets `IXOSS_SOURCE_ARCHIVE` to that file. HTTP responses advertise
-`/_ixoss/source.tar.gz` through a `Link` header; GET/HEAD of that endpoint offer
-the archive without an image-request signature. Do not block this route in a
-reverse proxy when relying on it as the source offer.
+The runtime image does not include that archive. Export it separately with
+`docker buildx build --target source-export --output type=local,dest=./dist .`
+and publish `dist/ixoss-source.tar.gz` as the matching tag's release asset.
+Use the same unchanged build inputs and builder image for the runtime build.
+Publish the source before distributing the runtime image and provide clear
+source download directions next to the image. GitHub's automatic tag archive
+does not include the vendored module generated during the build.
+
+Set the build argument `IXOSS_SOURCE_URL` to that release asset's absolute
+HTTP(S) URL to bake the offer into the image, or set the environment variable
+when deploying. Responses advertise that URL through a `Link` header.
+Keep the complete corresponding source available free of charge as required
+by the license. The runtime image defaults to no source offer when no URL is
+provided; publishing a tag alone does not configure the running service.
+
+Alternatively, mount the matching archive and set `IXOSS_SOURCE_ARCHIVE` to
+its readable path. GET/HEAD of `/_ixoss/source.tar.gz` then offer the archive
+without an image-request signature. Do not block the offer through a proxy.
 
 For a standalone binary, provide a trusted readable archive through
 `IXOSS_SOURCE_ARCHIVE`, or an absolute HTTP(S) `IXOSS_SOURCE_URL` pointing to the
