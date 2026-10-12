@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -250,21 +251,31 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// /healthz is exempt: it reports whether libvips is alive and reveals nothing
 	// about the objects being served, and a load balancer has no key.
 	normalizedPath := collapseSlashes(r.URL.Path)
+	if normalizedPath != "/healthz" {
+		if err := s.verifySignature(r); err != nil {
+			s.failSignature(w, r, err)
+			return
+		}
+	}
+	query := r.URL.Query()
+	redirect := normalizedPath != r.URL.Path
+	for key := range query {
+		if key != ossprocess.QueryKey && key != SignatureQueryKey {
+			query.Del(key)
+			redirect = true
+		}
+	}
+	if redirect {
+		// Build an origin-relative Location from decoded path/query values. This
+		// escapes special characters and cannot redirect to a different host.
+		target := &url.URL{Path: normalizedPath, RawQuery: query.Encode()}
+		w.Header().Set("Location", target.RequestURI())
+		w.WriteHeader(http.StatusPermanentRedirect)
+		return
+	}
 	if normalizedPath == "/healthz" {
 		s.health(w)
 		return
-	}
-
-	if err := s.verifySignature(r); err != nil {
-		s.failSignature(w, r, err)
-		return
-	}
-	if normalizedPath != r.URL.Path {
-		// Verify the original public path before normalizing it for routing and
-		// source access. Clone so middleware still sees the original request.
-		r = r.Clone(r.Context())
-		r.URL.Path = normalizedPath
-		r.URL.RawPath = ""
 	}
 
 	raw := r.URL.Query().Get(ossprocess.QueryKey)
@@ -315,8 +326,8 @@ func collapseSlashes(path string) string {
 
 // ----------------------------------------------------------------- signature
 
-// SignedMessage is what a signature covers: the object path with the process
-// chain appended exactly as it appears in the URL, and nothing else.
+// SignedMessage is what a signature covers: the object path with repeated
+// slashes collapsed, plus the process chain's decoded query value unchanged.
 //
 //	/photo.jpg
 //	/photo.jpg?x-oss-process=image/resize,w_800
@@ -328,6 +339,7 @@ func collapseSlashes(path string) string {
 // signature deliberately — cache-busters and analytics tags are added by things
 // that do not have the key.
 func SignedMessage(path, chain string) string {
+	path = collapseSlashes(path)
 	if chain == "" {
 		return path
 	}

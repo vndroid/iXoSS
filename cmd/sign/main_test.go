@@ -73,7 +73,7 @@ func TestSignedMessageIgnoresFragment(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		const want = "//sub//photo.jpg?x-oss-process=image/info"
+		const want = "/sub/photo.jpg?x-oss-process=image/info"
 		if got != want {
 			t.Errorf("signedMessage(%q) = %q, want %q", target, got, want)
 		}

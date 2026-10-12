@@ -29,7 +29,7 @@ func (s *recordingPathSource) Open(ctx context.Context, path string) (*source.Ob
 	return s.Source.Open(ctx, path)
 }
 
-func TestNormalizeRequestPathAfterSigning(t *testing.T) {
+func TestCanonicalRedirectAfterSigning(t *testing.T) {
 	s := newLimitedServer(t, t.TempDir(), 1024)
 	v := &recordingVerifier{enabled: true}
 	s.verifier = v
@@ -46,13 +46,16 @@ func TestNormalizeRequestPathAfterSigning(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, tc.target+"?v=1&x-ixoss-signature=abc", nil)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
-		if w.Code != http.StatusNotFound {
+		if w.Code != http.StatusPermanentRedirect {
 			t.Fatalf("%s: status %d, body %s", tc.target, w.Code, w.Body)
 		}
-		if src.path != tc.normalized {
-			t.Errorf("source path = %q, want %q", src.path, tc.normalized)
+		if src.path != "" {
+			t.Error("redirect must not open the source")
 		}
-		if v.gotMessage != tc.raw || v.gotSignature != "abc" {
+		if got := w.Header().Get("Location"); got != tc.normalized+"?x-ixoss-signature=abc" {
+			t.Errorf("Location = %q", got)
+		}
+		if v.gotMessage != tc.normalized || v.gotSignature != "abc" {
 			t.Errorf("signature checked against %q with %q", v.gotMessage, v.gotSignature)
 		}
 		if r.URL.Path != tc.raw || r.URL.Query().Get("v") != "1" {
@@ -69,8 +72,15 @@ func TestNormalizedHealthPath(t *testing.T) {
 		for _, method := range []string{http.MethodGet, http.MethodHead} {
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, httptest.NewRequest(method, path, nil))
-			if w.Code != http.StatusOK {
+			want := http.StatusPermanentRedirect
+			if path == "/healthz" {
+				want = http.StatusOK
+			}
+			if w.Code != want {
 				t.Errorf("%s %s: status %d", method, path, w.Code)
+			}
+			if want == http.StatusPermanentRedirect && w.Header().Get("Location") != "/healthz" {
+				t.Errorf("incorrect health redirect: %q", w.Header().Get("Location"))
 			}
 		}
 	}
@@ -99,7 +109,6 @@ func TestRepeatedSlashesOverHTTP(t *testing.T) {
 	ts := httptest.NewServer(s)
 	defer ts.Close()
 	client := ts.Client()
-	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	for _, signed := range []bool{false, true} {
 		if signed {
 			s.verifier = checker
@@ -159,6 +168,29 @@ func TestRepeatedSlashesOverHTTP(t *testing.T) {
 						}
 					}
 				}
+			}
+		}
+	}
+}
+
+func TestCanonicalRedirectFiltersQuery(t *testing.T) {
+	s := newLimitedServer(t, t.TempDir(), 1024)
+	for _, tc := range []struct{ target, location string }{
+		{"//?foo=1&bar=2", "/"},
+		{"/photo.jpg?foo=1", "/photo.jpg"},
+		{"//photo.jpg?foo=1&x-oss-process=image/info&x-ixoss-signature=abc", "/photo.jpg?x-ixoss-signature=abc&x-oss-process=image%2Finfo"},
+		{"//photo.jpg?x-oss-process=image/resize,w_4/format,png", "/photo.jpg?x-oss-process=image%2Fresize%2Cw_4%2Fformat%2Cpng"},
+		{"//evil.example//photo.jpg?redirect=https://evil.example", "/evil.example/photo.jpg"},
+		{"//space%20name%3F%23.jpg?foo=1", "/space%20name%3F%23.jpg"},
+	} {
+		for _, method := range []string{http.MethodGet, http.MethodHead} {
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, httptest.NewRequest(method, tc.target, nil))
+			if w.Code != http.StatusPermanentRedirect || w.Header().Get("Location") != tc.location {
+				t.Errorf("%s %s: status=%d Location=%q, want %q", method, tc.target, w.Code, w.Header().Get("Location"), tc.location)
+			}
+			if w.Body.Len() != 0 {
+				t.Error("redirect unexpectedly returned an image body")
 			}
 		}
 	}

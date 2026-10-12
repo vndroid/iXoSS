@@ -39,10 +39,13 @@ GET /photo.jpg?x-oss-process=image/info           JSON metadata
 GET /healthz
 ```
 
-Repeated slashes in request paths are collapsed before routing: `//` becomes
-`/`, and `//sub//photo.jpg` is served as `/sub/photo.jpg`. Query parameters are
-preserved. Signatures still cover the original requested path before this
-normalization.
+Requests with repeated path slashes or unsupported query parameters receive a
+`308` redirect to a canonical URL: `//` becomes `/`, and
+`//sub//photo.jpg?foo=1` becomes `/sub/photo.jpg`. Only `x-oss-process` and
+`x-ixoss-signature` query parameters are retained; invalid processing options
+still return errors. Signatures cover the path with repeated slashes collapsed,
+so they remain valid after the redirect. Re-sign older URLs whose signatures
+were generated from paths containing repeated slashes.
 
 ### Supported actions
 
@@ -484,8 +487,8 @@ under `IXOSS_ROOT`. Configure signing when access needs to be restricted.
 IXOSS_KEY=$(openssl rand -hex 32) IXOSS_SALT=$(openssl rand -hex 32) ixoss
 ```
 
-What is signed is the object path with the process chain appended exactly as it
-appears in the URL, and nothing else:
+What is signed is the decoded object path with repeated slashes collapsed,
+followed by the decoded process query value unchanged:
 
 ```
 /photo.jpg
@@ -496,8 +499,7 @@ Both halves have to be in it. Signing the path alone would let anyone rewrite
 the transform on a URL they were handed, and an unbounded chain of resizes is a
 cheap way to spend someone else's CPU; signing the chain alone would let them
 point it at a different object. Other query parameters are outside the
-signature on purpose — cache-busters and analytics tags get added by things
-that do not have the key.
+signature and are removed by the canonical URL redirect.
 
 `cmd/sign` computes it, reading the same two variables:
 

@@ -21,6 +21,7 @@ func TestSignedMessage(t *testing.T) {
 		{"/photo.jpg", "", "/photo.jpg"},
 		{"/photo.jpg", "image/resize,w_800", "/photo.jpg?x-oss-process=image/resize,w_800"},
 		{"/a/b/c.png", "image/info", "/a/b/c.png?x-oss-process=image/info"},
+		{"//a///b.png", "image/info", "/a/b.png?x-oss-process=image/info"},
 	}
 
 	for _, tt := range tests {
@@ -143,6 +144,16 @@ func TestVerifySignatureMessage(t *testing.T) {
 				t.Errorf("message = %q, want %q", v.gotMessage, tt.wantMsg)
 			}
 		})
+	}
+}
+
+func TestInvalidSignatureDoesNotRedirect(t *testing.T) {
+	s := newLimitedServer(t, t.TempDir(), 1024)
+	s.verifier = &recordingVerifier{enabled: true, err: errors.New("invalid signature")}
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "//photo.jpg?foo=1&x-ixoss-signature=invalid", nil))
+	if w.Code != http.StatusForbidden || w.Header().Get("Location") != "" {
+		t.Errorf("status=%d Location=%q", w.Code, w.Header().Get("Location"))
 	}
 }
 
