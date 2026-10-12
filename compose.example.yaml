@@ -12,6 +12,12 @@ services:
     environment:
       IXOSS_ROOT: /srv/images
       IXOSS_CACHE_DIR: /var/cache/ixoss
+      # Sweep every 10 minutes: keep at most 1 GiB and evict entries
+      # that have not been accessed for 7 days. Set either limit to 0
+      # to disable that rule; size limits apply after each sweep.
+      IXOSS_CACHE_MAX_BYTES: "1073741824"
+      IXOSS_CACHE_MAX_AGE_HOURS: "168"
+      IXOSS_CACHE_EVICT_INTERVAL_MIN: "10"
       IXOSS_BIND: 0.0.0.0:8080
     # Allow the HEIC encoder's NUMA memory policy calls.
     cap_add:

@@ -734,7 +734,10 @@ UID 10001. Override configuration with Docker's `-e IXOSS_...` options.
 The build context includes only Go sources, module files and license notices.
 
 Or use the [Compose example](compose.example.yaml), which includes a persistent
-cache volume, a health check and automatic restart:
+cache volume, a health check and automatic restart. It checks the cache every
+10 minutes, enforcing a 1 GiB size limit and removing entries not accessed for
+7 days. Adjust the `IXOSS_CACHE_*` environment variables in the example to
+change these limits:
 
 ```sh
 mkdir -p images
