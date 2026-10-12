@@ -13,9 +13,11 @@ package httpserver
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -144,7 +146,7 @@ func NewDefaultConfig() Config {
 	return Config{
 		MaxSourceBytes: 100 << 20,
 		ProcessTimeout: 20 * time.Second,
-		CacheControl:   "public, max-age=31536000, immutable",
+		CacheControl:   "public, max-age=300",
 
 		MaxWatermarkBytes:      DefaultMaxWatermarkBytes,
 		MaxWatermarkResolution: DefaultMaxWatermarkResolution,
@@ -242,6 +244,8 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		s.fail(w, r, http.StatusMethodNotAllowed, "MethodNotAllowed", "only GET and HEAD are supported")
@@ -440,10 +444,17 @@ func (s *Server) serveOriginal(w http.ResponseWriter, r *http.Request) {
 	} else if !s.cfg.PassthroughNonImages {
 		s.fail(w, r, http.StatusUnsupportedMediaType, "InvalidArgument", "source is not a supported image")
 		return
+	} else {
+		w.Header().Set("Content-Type", "application/octet-stream")
 	}
 
 	w.Header().Set("Content-Length", strconv.FormatInt(obj.Size, 10))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
+	// File identity is a weak validator, not a digest of the response bytes.
+	etag := `W/"` + s.cacheKey(&obj.Info, "original").Hash() + `"`
+	if notModified(w, r, etag) {
+		return
+	}
 	if head {
 		return
 	}
@@ -482,6 +493,9 @@ func (s *Server) serveAverageHue(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
+	if notModified(w, r, contentETag([]byte(body))) {
+		return
+	}
 	if r.Method == http.MethodHead {
 		return
 	}
@@ -595,6 +609,9 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
+	if notModified(w, r, contentETag(body)) {
+		return
+	}
 	if r.Method == http.MethodHead {
 		return
 	}
@@ -767,6 +784,9 @@ func (s *Server) serveProcessedHeadMiss(w http.ResponseWriter, r *http.Request, 
 	}
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
 	w.Header().Set("X-IXoSS-Cache", "MISS")
+	if notModified(w, r, "") {
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -1032,10 +1052,23 @@ func (s *Server) writeImage(w http.ResponseWriter, r *http.Request, e *cache.Ent
 		}
 		e.Seek(0, 0)
 	}
+	// Hash the cached bytes without buffering the image in memory.
+	digest := sha256.New()
+	if _, err := io.Copy(digest, e); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, "InternalError", "could not read cached image")
+		return
+	}
+	if _, err := e.Seek(0, io.SeekStart); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, "InternalError", "could not read cached image")
+		return
+	}
 	w.Header().Set("Content-Type", mime)
 	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
 	w.Header().Set("X-IXoSS-Cache", cacheStatus)
+	if notModified(w, r, fmt.Sprintf(`"%x"`, digest.Sum(nil))) {
+		return
+	}
 	if r.Method == http.MethodHead {
 		return
 	}
@@ -1047,6 +1080,9 @@ func (s *Server) writeImageBytes(w http.ResponseWriter, r *http.Request, b []byt
 	w.Header().Set("Content-Length", strconv.Itoa(len(b)))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
 	w.Header().Set("X-IXoSS-Cache", cacheStatus)
+	if notModified(w, r, contentETag(b)) {
+		return
+	}
 	if r.Method == http.MethodHead {
 		return
 	}
@@ -1054,6 +1090,8 @@ func (s *Server) writeImageBytes(w http.ResponseWriter, r *http.Request, b []byt
 }
 
 func (s *Server) health(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if err := vips.Health(); err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
@@ -1071,6 +1109,9 @@ type ossError struct {
 
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, status int, code, msg string) {
 	slog.Debug("request failed", "path", r.URL.Path, "status", status, "code", code, "message", msg)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Del("ETag")
 	body, _ := json.Marshal(ossError{Code: code, Message: msg})
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))

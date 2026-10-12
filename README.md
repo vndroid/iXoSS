@@ -51,6 +51,30 @@ repeated slashes collapsed, so they remain valid after the redirect. Re-sign
 older URLs whose signatures were generated from paths containing repeated
 slashes.
 
+### Response headers and conditional requests
+
+All responses include `X-Content-Type-Options: nosniff`. Errors, health checks,
+and canonical redirects use `Cache-Control: no-store`. Successful image,
+metadata and average-hue responses default to `public, max-age=300` (five
+minutes), configurable through `IXOSS_CACHE_CONTROL`. For content-hashed or
+versioned URLs, `public, max-age=31536000, immutable` can be configured explicitly.
+Previously cached responses keep their old lifetime until they expire or are
+purged; changing the server policy does not evict browser or CDN caches.
+
+Original files use weak ETags based on file identity, size and nanosecond mtime;
+replacing a file must update its mtime. Processed images, info JSON and
+average-hue results use strong SHA-256 ETags of the actual response bytes.
+GET and HEAD accept `If-None-Match` (including weak tags, lists and `*`) and
+return a bodyless `304` when the selected representation matches. Authorization,
+parameter validation and resource checks happen before conditional responses.
+`304` retains the ETag, cache policy and, for `format,auto`, `Vary: Accept`.
+
+A processed HEAD cache miss remains cheap: it does not encode an image and
+omits the ETag and output length. Only `If-None-Match: *` can produce a `304`
+in that case after the existing source checks. Cached HEAD uses the same
+content ETag as GET. Conditional requests save response bandwidth; an uncached
+processed GET still needs to produce the output to calculate its content ETag.
+
 ### Supported actions
 
 **`resize`** — `m_` mode, `w_`/`h_` box, `l_` longest side, `s_` shortest side,
@@ -400,7 +424,7 @@ unchanged:
 | `IXOSS_CONCURRENCY` | `GOMAXPROCS` | simultaneous encodes |
 | `IXOSS_MAX_SOURCE_BYTES` | `104857600` | reject larger sources |
 | `IXOSS_PROCESS_TIMEOUT_MS` | `20000` | per-request processing deadline |
-| `IXOSS_CACHE_CONTROL` | `public, max-age=31536000, immutable` | response header |
+| `IXOSS_CACHE_CONTROL` | `public, max-age=300` | successful response cache policy |
 | `IXOSS_CACHE_MAX_BYTES` | `0` *(unbounded)* | evict least-recently-used entries above this |
 | `IXOSS_CACHE_MAX_AGE_HOURS` | `0` *(no age bound)* | evict entries untouched for longer |
 | `IXOSS_CACHE_EVICT_INTERVAL_MIN` | `10` | how often to sweep |
@@ -431,7 +455,7 @@ does not reuse its previous output. Signed URLs still sign the public alias
 (`style/thumb`): changing a definition also changes what an existing signed
 URL requests.
 An external CDN or browser can still hold the old response under the same URL,
-especially with the default `immutable` cache header. Use versioned style names
+until its cache lifetime expires. Use versioned style names
 (for example `thumb-v2`) or purge external caches when changing a definition.
 
 ### Watermark limits
