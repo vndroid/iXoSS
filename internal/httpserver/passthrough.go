@@ -70,7 +70,6 @@ func (s *Server) tryServeOriginal(w http.ResponseWriter, r *http.Request, chain 
 			return true
 		}
 	}
-	w.Header().Set("X-IXoSS-Cache", "BYPASS")
 	s.writeOriginal(w, r, &obj.Info, format.Mime(), body)
 	return true
 }

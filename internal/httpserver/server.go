@@ -443,6 +443,7 @@ func (s *Server) serveOriginal(w http.ResponseWriter, r *http.Request) {
 // writeOriginal shares headers and conditional requests between the original
 // endpoint and resize/format requests that can transmit the source unchanged.
 func (s *Server) writeOriginal(w http.ResponseWriter, r *http.Request, info *source.Info, mime string, body io.WriterTo) {
+	w.Header().Set("X-IXoSS-Cache", "BYPASS")
 	w.Header().Set("Content-Type", mime)
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)

@@ -51,6 +51,9 @@ func TestResponseValidators(t *testing.T) {
 			t.Fatalf("%s: status=%d ETag=%q body=%s", chain, first.Code, tag, first.Body)
 		}
 		if chain == "" {
+			if first.Header().Get("X-IXoSS-Cache") != "BYPASS" {
+				t.Fatal("original GET must report cache bypass")
+			}
 			if !strings.HasPrefix(tag, `W/"`) {
 				t.Fatal("original must use a weak file validator")
 			}
@@ -70,11 +73,17 @@ func TestResponseValidators(t *testing.T) {
 				if w.Header().Get("ETag") != tag || w.Header().Get("Cache-Control") != "public, max-age=300" || w.Header().Get("X-Content-Type-Options") != "nosniff" {
 					t.Fatalf("304 lost response policy: %v", w.Header())
 				}
+				if chain == "" && w.Header().Get("X-IXoSS-Cache") != "BYPASS" {
+					t.Fatal("original 304 must report cache bypass")
+				}
 				if chain == "image/format,auto" && w.Header().Get("Vary") != "Accept" {
 					t.Fatal("304 lost format negotiation Vary")
 				}
 			}
 			w := request(method, target, `"different"`, "image/webp")
+			if chain == "" && w.Header().Get("X-IXoSS-Cache") != "BYPASS" {
+				t.Fatal("original GET/HEAD must report cache bypass")
+			}
 			if w.Code != http.StatusOK || w.Header().Get("ETag") != tag {
 				t.Fatal("nonmatching validator must return 200")
 			}

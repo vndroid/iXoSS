@@ -81,7 +81,9 @@ processed GET still needs to produce the output to calculate its content ETag.
 A chain containing only `resize` and/or `format` returns the original bytes when
 all requested actions preserve the source dimensions and format. The check runs
 before disk cache access: it ignores existing transformed entries, does not
-encode or write a new entry, and reports `X-IXoSS-Cache: BYPASS`.
+encode or write a new entry, and reports `X-IXoSS-Cache: BYPASS`. Original
+requests without processing parameters report the same marker, including GET,
+HEAD and conditional `304` responses.
 
 For a 700x500 JPEG, `image/resize,w_700`, `image/resize,w_700,h_500`,
 `image/format,jpg` and `image/resize,w_700/format,jpg` all transmit the original.
