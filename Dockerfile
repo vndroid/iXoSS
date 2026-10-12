@@ -19,6 +19,7 @@ RUN apk add --no-cache vips vips-heif vips-jxl font-wqy-zenhei \
 
 COPY --from=build /out/ixoss /usr/local/bin/ixoss
 COPY LICENSE LICENSE-imgproxy NOTICE /usr/share/doc/ixoss/
+COPY third_party/imgproxy/ /usr/share/doc/ixoss/imgproxy/
 
 ENV IXOSS_ROOT=/srv/images \
     IXOSS_CACHE_DIR=/var/cache/ixoss \

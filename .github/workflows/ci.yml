@@ -90,6 +90,9 @@ jobs:
           go-version: '1.26'
           cache: false
 
+      - name: imgproxy source lock
+        run: python3 tools/audit_imgproxy.py
+
       - name: gofmt
         run: |
           unformatted="$(gofmt -l .)"

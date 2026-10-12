@@ -617,6 +617,13 @@ XMP metadata.
 
 ### Ported from imgproxy
 
+The maintained port is pinned to the **v4.0.17 audit/security baseline**
+(`2c89e4ebff3384caf6752db2ec861b4ef5fe675c`), with iXoSS modifications and
+selected master changes. The original import did not record its exact revision.
+See [the upstream audit](third_party/imgproxy/README.md) and
+[version lock](third_party/imgproxy/UPSTREAM.json) for provenance, file hashes
+and backported security fixes. This marker is separate from iXoSS's version.
+
 ```
 internal/processing/     the pipeline, in full
 internal/options/        typed option bag used as the pipeline's IR

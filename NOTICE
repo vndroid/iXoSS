@@ -53,6 +53,12 @@ the imgproxy project:
 
 A copy of the Apache License, Version 2.0 is provided in LICENSE-imgproxy.
 
+The maintained port is audited against imgproxy v4.0.17, commit
+2c89e4ebff3384caf6752db2ec861b4ef5fe675c. This is a comparison and security
+baseline, not a claim of an unmodified release or exact historical origin.
+The version lock, per-file source hashes, retained master changes and backported
+security patches are recorded in third_party/imgproxy/UPSTREAM.json and README.md.
+
 Modifications made by iXoSS are described in README.md under
 "What was changed relative to imgproxy". In summary:
 

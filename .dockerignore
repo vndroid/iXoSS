@@ -11,3 +11,6 @@
 !LICENSE
 !LICENSE-imgproxy
 !NOTICE
+!third_party/
+!third_party/imgproxy/
+!third_party/imgproxy/**

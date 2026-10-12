@@ -1,0 +1,2086 @@
+--- upstream/auximageprovider/provider.go
++++ internal/auximageprovider/provider.go
+@@ -17,0 +18,3 @@
++
++	// Close releases the image data held by the provider.
++	Close() error
+--- upstream/auximageprovider/static_config.go
++++ internal/auximageprovider/static_config.go
+@@ -9,3 +9,3 @@
+-	IMGPROXY_WATERMARK_DATA = env.String("IMGPROXY_WATERMARK_DATA")
+-	IMGPROXY_WATERMARK_PATH = env.ExistingFilePath("IMGPROXY_WATERMARK_PATH")
+-	IMGPROXY_WATERMARK_URL  = env.String("IMGPROXY_WATERMARK_URL")
++	IXOSS_WATERMARK_DATA = env.String("IXOSS_WATERMARK_DATA")
++	IXOSS_WATERMARK_PATH = env.ExistingFilePath("IXOSS_WATERMARK_PATH")
++	IXOSS_WATERMARK_URL  = env.String("IXOSS_WATERMARK_URL")
+@@ -13,3 +13,3 @@
+-	IMGPROXY_FALLBACK_IMAGE_DATA = env.String("IMGPROXY_FALLBACK_IMAGE_DATA")
+-	IMGPROXY_FALLBACK_IMAGE_PATH = env.ExistingFilePath("IMGPROXY_FALLBACK_IMAGE_PATH")
+-	IMGPROXY_FALLBACK_IMAGE_URL  = env.String("IMGPROXY_FALLBACK_IMAGE_URL")
++	IXOSS_FALLBACK_IMAGE_DATA = env.String("IXOSS_FALLBACK_IMAGE_DATA")
++	IXOSS_FALLBACK_IMAGE_PATH = env.ExistingFilePath("IXOSS_FALLBACK_IMAGE_PATH")
++	IXOSS_FALLBACK_IMAGE_URL  = env.String("IXOSS_FALLBACK_IMAGE_URL")
+@@ -38,3 +38,3 @@
+-	IMGPROXY_WATERMARK_DATA.Parse(&c.Base64Data)
+-	IMGPROXY_WATERMARK_PATH.Parse(&c.Path)
+-	IMGPROXY_WATERMARK_URL.Parse(&c.URL)
++	IXOSS_WATERMARK_DATA.Parse(&c.Base64Data)
++	IXOSS_WATERMARK_PATH.Parse(&c.Path)
++	IXOSS_WATERMARK_URL.Parse(&c.URL)
+@@ -49,3 +49,3 @@
+-	IMGPROXY_FALLBACK_IMAGE_DATA.Parse(&c.Base64Data)
+-	IMGPROXY_FALLBACK_IMAGE_PATH.Parse(&c.Path)
+-	IMGPROXY_FALLBACK_IMAGE_URL.Parse(&c.URL)
++	IXOSS_FALLBACK_IMAGE_DATA.Parse(&c.Base64Data)
++	IXOSS_FALLBACK_IMAGE_PATH.Parse(&c.Path)
++	IXOSS_FALLBACK_IMAGE_URL.Parse(&c.URL)
+--- upstream/auximageprovider/static_provider.go
++++ internal/auximageprovider/static_provider.go
+@@ -4,0 +5 @@
++	"errors"
+@@ -20,2 +21,3 @@
+-	// We return a nopCloser to prevent the caller from closing the shared image data.
+-	return imagedata.NopCloser(s.data), s.headers.Clone(), nil
++	// Ref() increments the ref count so the caller can Close() independently
++	// without releasing the shared underlying data.
++	return s.data.Ref(), s.headers.Clone(), nil
+@@ -24 +26,11 @@
+-// NewStaticProvider creates a new ImageProvider from either a base64 string, file path, or URL
++// Close releases the static image data held by the provider.
++func (s *staticProvider) Close() error {
++	return s.data.Close()
++}
++
++// NewStaticProvider creates a Provider from either a base64 blob or a file path.
++//
++// imgproxy also accepts a URL here and downloads the watermark over HTTP, which
++// is what drags its imagedata.Factory — and behind it the whole fetcher and
++// storage tree, with the AWS, Azure, GCS and Swift SDKs — into the graph.
++// iXoSS serves images off local disk, so a watermark comes from local disk too.
+@@ -26 +38 @@
+-	ctx context.Context,
++	_ context.Context,
+@@ -28,2 +40 @@
+-	desc string,
+-	idf *imagedata.Factory,
++	_ string,
+@@ -39 +50 @@
+-		data, err = idf.NewFromBase64(c.Base64Data)
++		data, err = imagedata.NewFromBase64(c.Base64Data)
+@@ -41 +52 @@
+-		data, err = idf.NewFromPath(c.Path)
++		data, err = imagedata.NewFromFile(c.Path)
+@@ -43,3 +54 @@
+-		data, headers, err = idf.DownloadSync(
+-			ctx, c.URL, desc, imagedata.DownloadOptions{},
+-		)
++		return nil, errors.New("auximageprovider: loading an auxiliary image from a URL is not supported; use a local path")
+--- upstream/env/desc.go
++++ internal/env/desc.go
+@@ -37,0 +38,9 @@
++	// Empty parse function means that this is a zero value descriptor,
++	// so we should skip parsing and just return nil.
++	// This allows us to use zero value descriptors in config descriptions
++	// (for example, [s3.ConfigDesc]) without having to check if the descriptor
++	// is set before parsing.
++	if d.parseFn == nil {
++		return nil
++	}
++
+--- upstream/env/parsers.go
++++ internal/env/parsers.go
+@@ -175,13 +174,0 @@
+-	}
+-
+-	return result, nil
+-}
+-
+-// parseURLPatterns parses a comma-separated list of wildcard patterns and converts them
+-// to compiled regular expressions using RegexpFromPattern.
+-func parseURLPatterns(env string) ([]*regexp.Regexp, error) {
+-	parts := strings.Split(env, ",")
+-	result := make([]*regexp.Regexp, len(parts))
+-
+-	for i, p := range parts {
+-		result[i] = RegexpFromPattern(strings.TrimSpace(p))
+--- upstream/env/types.go
++++ internal/env/types.go
+@@ -5 +4,0 @@
+-	"regexp"
+@@ -22 +20,0 @@
+-type URLPatternsVar = Desc[[]*regexp.Regexp]
+@@ -160,10 +157,0 @@
+-// URLPatterns defines regexp patterns slice env var descriptor.
+-// Parses comma-separated wildcard patterns and converts them to regexps.
+-func URLPatterns(name string) URLPatternsVar {
+-	return URLPatternsVar{
+-		Name:    name,
+-		format:  "comma-separated wildcard patterns",
+-		parseFn: parseURLPatterns,
+-	}
+-}
+-
+--- upstream/imagetype/type.go
++++ internal/imagetype/type.go
+@@ -4,0 +5 @@
++	"log/slog"
+@@ -57,0 +59,5 @@
++}
++
++// LogValue implements the slog.LogValuer interface for Type.
++func (t Type) LogValue() slog.Value {
++	return slog.StringValue(t.String())
+--- upstream/options/keys/keys.go
++++ internal/options/keys/keys.go
+@@ -56,0 +57,6 @@
++	// RotateFree is an arbitrary angle in degrees. Rotate stays what it was in
++	// imgproxy — a multiple of 90, applied as a lossless transpose — because
++	// the two need different libvips calls and only the free one changes the
++	// canvas size.
++	RotateFree = "rotate_free"
++
+@@ -60,0 +67,5 @@
++
++	// Interlace requests progressive JPEG / interlaced PNG for this request
++	// only. Absent means the process-wide default, which is why callers test
++	// Has() rather than reading a bool.
++	Interlace = "interlace"
+@@ -68,0 +80,11 @@
++
++	// Brightness is an offset added to every colour channel on the 0..255
++	// scale; Contrast is a multiplier around mid-grey. Both are iXoSS
++	// additions, absent from imgproxy.
++	Brightness = "brightness"
++	Contrast   = "contrast"
++
++	// Corner radius, in pixels, of the alpha mask applied near the end of the
++	// pipeline. CircleRadius additionally squares the image first.
++	CircleRadius         = "circle.radius"
++	RoundedCornersRadius = "rounded_corners.radius"
+--- /dev/null
++++ internal/processing/adjust.go
+@@ -0,0 +1,32 @@
++package processing
++
++// adjust applies the brightness and contrast options.
++//
++// Both are linear transforms of the colour channels, so they are folded into a
++// single pass: contrast scales around mid-grey, brightness shifts afterwards.
++//
++//	out = in*c + 127.5*(1 - c) + b
++//
++// Doing them separately would clip twice — a dark image pushed through
++// `contrast,-100` and then `bright,50` would lose the shadow detail that the
++// combined form keeps, because the intermediate never lands in a uchar buffer.
++//
++// This step is an iXoSS addition; imgproxy has no brightness or contrast
++// option.
++func (p *Processor) adjust(c *Context) error {
++	brightness := c.PO.Brightness()
++	contrast := c.PO.Contrast()
++
++	if brightness == 0 && contrast == 1 {
++		return nil
++	}
++
++	// The 127.5 pivot assumes 8-bit sRGB, which is also what applyFilters
++	// assumes; converting here makes the step independent of whether that one
++	// ran.
++	if err := c.Img.RgbColourspace(); err != nil {
++		return err
++	}
++
++	return c.Img.Linear(contrast, 127.5*(1-contrast)+brightness)
++}
+--- upstream/processing/config.go
++++ internal/processing/config.go
+@@ -10 +9,0 @@
+-	"github.com/imgproxy/imgproxy/v4/processing/svg"
+@@ -15,14 +14,14 @@
+-	IMGPROXY_PREFERRED_FORMATS       = env.ImageTypes("IMGPROXY_PREFERRED_FORMATS")
+-	IMGPROXY_SKIP_PROCESSING_FORMATS = env.ImageTypes("IMGPROXY_SKIP_PROCESSING_FORMATS")
+-	IMGPROXY_WATERMARK_OPACITY       = env.Float("IMGPROXY_WATERMARK_OPACITY")
+-	IMGPROXY_DISABLE_SHRINK_ON_LOAD  = env.Bool("IMGPROXY_DISABLE_SHRINK_ON_LOAD")
+-	IMGPROXY_USE_LINEAR_COLORSPACE   = env.Bool("IMGPROXY_USE_LINEAR_COLORSPACE")
+-	IMGPROXY_ALWAYS_RASTERIZE_SVG    = env.Bool("IMGPROXY_ALWAYS_RASTERIZE_SVG")
+-	IMGPROXY_QUALITY                 = env.Int("IMGPROXY_QUALITY")
+-	IMGPROXY_FORMAT_QUALITY          = env.ImageTypesQuality("IMGPROXY_FORMAT_QUALITY")
+-	IMGPROXY_STRIP_METADATA          = env.Bool("IMGPROXY_STRIP_METADATA")
+-	IMGPROXY_KEEP_COPYRIGHT          = env.Bool("IMGPROXY_KEEP_COPYRIGHT")
+-	IMGPROXY_STRIP_COLOR_PROFILE     = env.Bool("IMGPROXY_STRIP_COLOR_PROFILE")
+-	IMGPROXY_AUTO_ROTATE             = env.Bool("IMGPROXY_AUTO_ROTATE")
+-	IMGPROXY_ENFORCE_THUMBNAIL       = env.Bool("IMGPROXY_ENFORCE_THUMBNAIL")
+-	IMGPROXY_PRESERVE_HDR            = env.Bool("IMGPROXY_PRESERVE_HDR")
++	IXOSS_PREFERRED_FORMATS       = env.ImageTypes("IXOSS_PREFERRED_FORMATS")
++	IXOSS_SKIP_PROCESSING_FORMATS = env.ImageTypes("IXOSS_SKIP_PROCESSING_FORMATS")
++	IXOSS_WATERMARK_OPACITY       = env.Float("IXOSS_WATERMARK_OPACITY")
++	IXOSS_DISABLE_SHRINK_ON_LOAD  = env.Bool("IXOSS_DISABLE_SHRINK_ON_LOAD")
++	IXOSS_USE_LINEAR_COLORSPACE   = env.Bool("IXOSS_USE_LINEAR_COLORSPACE")
++	IXOSS_ALWAYS_RASTERIZE_SVG    = env.Bool("IXOSS_ALWAYS_RASTERIZE_SVG")
++	IXOSS_QUALITY                 = env.Int("IXOSS_QUALITY")
++	IXOSS_FORMAT_QUALITY          = env.ImageTypesQuality("IXOSS_FORMAT_QUALITY")
++	IXOSS_STRIP_METADATA          = env.Bool("IXOSS_STRIP_METADATA")
++	IXOSS_KEEP_COPYRIGHT          = env.Bool("IXOSS_KEEP_COPYRIGHT")
++	IXOSS_STRIP_COLOR_PROFILE     = env.Bool("IXOSS_STRIP_COLOR_PROFILE")
++	IXOSS_AUTO_ROTATE             = env.Bool("IXOSS_AUTO_ROTATE")
++	IXOSS_ENFORCE_THUMBNAIL       = env.Bool("IXOSS_ENFORCE_THUMBNAIL")
++	IXOSS_PRESERVE_HDR            = env.Bool("IXOSS_PRESERVE_HDR")
+@@ -47,2 +45,0 @@
+-
+-	Svg svg.Config
+@@ -72,2 +68,0 @@
+-
+-		Svg: svg.NewDefaultConfig(),
+@@ -81,2 +75,0 @@
+-	_, svgErr := svg.LoadConfigFromEnv(&c.Svg)
+-
+@@ -86,13 +79,12 @@
+-		svgErr,
+-		IMGPROXY_WATERMARK_OPACITY.Parse(&c.WatermarkOpacity),
+-		IMGPROXY_DISABLE_SHRINK_ON_LOAD.Parse(&c.DisableShrinkOnLoad),
+-		IMGPROXY_USE_LINEAR_COLORSPACE.Parse(&c.UseLinearColorspace),
+-		IMGPROXY_ALWAYS_RASTERIZE_SVG.Parse(&c.AlwaysRasterizeSvg),
+-		IMGPROXY_QUALITY.Parse(&c.Quality),
+-		IMGPROXY_FORMAT_QUALITY.Parse(&fq),
+-		IMGPROXY_STRIP_METADATA.Parse(&c.StripMetadata),
+-		IMGPROXY_KEEP_COPYRIGHT.Parse(&c.KeepCopyright),
+-		IMGPROXY_STRIP_COLOR_PROFILE.Parse(&c.StripColorProfile),
+-		IMGPROXY_AUTO_ROTATE.Parse(&c.AutoRotate),
+-		IMGPROXY_ENFORCE_THUMBNAIL.Parse(&c.EnforceThumbnail),
+-		IMGPROXY_PRESERVE_HDR.Parse(&c.PreserveHDR),
++		IXOSS_WATERMARK_OPACITY.Parse(&c.WatermarkOpacity),
++		IXOSS_DISABLE_SHRINK_ON_LOAD.Parse(&c.DisableShrinkOnLoad),
++		IXOSS_USE_LINEAR_COLORSPACE.Parse(&c.UseLinearColorspace),
++		IXOSS_ALWAYS_RASTERIZE_SVG.Parse(&c.AlwaysRasterizeSvg),
++		IXOSS_QUALITY.Parse(&c.Quality),
++		IXOSS_FORMAT_QUALITY.Parse(&fq),
++		IXOSS_STRIP_METADATA.Parse(&c.StripMetadata),
++		IXOSS_KEEP_COPYRIGHT.Parse(&c.KeepCopyright),
++		IXOSS_STRIP_COLOR_PROFILE.Parse(&c.StripColorProfile),
++		IXOSS_AUTO_ROTATE.Parse(&c.AutoRotate),
++		IXOSS_ENFORCE_THUMBNAIL.Parse(&c.EnforceThumbnail),
++		IXOSS_PRESERVE_HDR.Parse(&c.PreserveHDR),
+@@ -100,2 +92,2 @@
+-		IMGPROXY_PREFERRED_FORMATS.Parse(&c.PreferredFormats),
+-		IMGPROXY_SKIP_PROCESSING_FORMATS.Parse(&c.SkipProcessingFormats),
++		IXOSS_PREFERRED_FORMATS.Parse(&c.PreferredFormats),
++		IXOSS_SKIP_PROCESSING_FORMATS.Parse(&c.SkipProcessingFormats),
+@@ -112 +104 @@
+-		return IMGPROXY_WATERMARK_OPACITY.Errorf("must be between 0 and 1")
++		return IXOSS_WATERMARK_OPACITY.Errorf("must be between 0 and 1")
+@@ -116 +108 @@
+-		return IMGPROXY_QUALITY.Errorf("must be between 1 and 100")
++		return IXOSS_QUALITY.Errorf("must be between 1 and 100")
+@@ -121 +113 @@
+-			return IMGPROXY_FORMAT_QUALITY.Errorf("format %s: must be between 1 and 100", imgtype.String())
++			return IXOSS_FORMAT_QUALITY.Errorf("format %s: must be between 1 and 100", imgtype.String())
+@@ -129 +121 @@
+-			IMGPROXY_PREFERRED_FORMATS.Warn("can't be a preferred format as it's saving is not supported", "format", t)
++			IXOSS_PREFERRED_FORMATS.Warn("can't be a preferred format as it's saving is not supported", "format", t)
+@@ -136 +128 @@
+-		return IMGPROXY_PREFERRED_FORMATS.Errorf("no supported preferred formats specified")
++		return IXOSS_PREFERRED_FORMATS.Errorf("no supported preferred formats specified")
+--- upstream/processing/errors.go
++++ internal/processing/errors.go
+@@ -23,0 +24,44 @@
++
++type (
++	AnimationNotReadableError struct{ *errctx.TextError }
++)
++
++// newAnimationNotReadableError reports a source whose animation this build of
++// libvips cannot decode, asked for in a format that could have carried it.
++//
++// The message names the format and the frame count for the same reason the
++// frame-cap refusal does: image/info already reports that count for the same
++// object, so nothing is disclosed by repeating it, and "invalid image" would
++// leave the caller with no idea that asking for a still format works fine.
++func newAnimationNotReadableError(format imagetype.Type, frames int) error {
++	msg := fmt.Sprintf(
++		"This build of libvips cannot read %s animation; the source has %d frames. "+
++			"Request a still format instead.",
++		format, frames,
++	)
++
++	return AnimationNotReadableError{errctx.NewTextError(
++		msg,
++		1,
++		errctx.WithStatusCode(http.StatusUnprocessableEntity),
++		errctx.WithPublicMessage(msg),
++		errctx.WithShouldReport(false),
++	)}
++}
++
++type (
++	UnsupportedFormatError struct{ *errctx.TextError }
++)
++
++// newUnsupportedFormatError reports an input format iXoSS deliberately does not
++// handle. Today that is only SVG: imgproxy sanitizes it with its xmlparser, and
++// iXoSS dropped that package along with vector support.
++func newUnsupportedFormatError(format imagetype.Type) error {
++	return UnsupportedFormatError{errctx.NewTextError(
++		fmt.Sprintf("%s is not supported", format),
++		1,
++		errctx.WithStatusCode(http.StatusUnprocessableEntity),
++		errctx.WithPublicMessage("Unsupported image format"),
++		errctx.WithShouldReport(false),
++	)}
++}
+--- upstream/processing/gravity_type.go
++++ internal/processing/gravity_type.go
+@@ -4,0 +5 @@
++	"log/slog"
+@@ -19,0 +21,4 @@
++}
++
++func (gt GravityType) LogValue() slog.Value {
++	return slog.StringValue(gt.String())
+--- upstream/processing/options.go
++++ internal/processing/options.go
+@@ -9,0 +10 @@
++	"github.com/imgproxy/imgproxy/v4/vips"
+@@ -174,0 +176,54 @@
++}
++
++// Brightness is added to every colour channel on the 0..255 scale. 0 is neutral.
++// saveOverrides collects the encoder settings this request overrides.
++//
++// Only interlacing is per-request: everything else in the save options is a
++// deployment decision. An absent key leaves the process-wide default alone,
++// which is why this tests Has rather than reading a bool with a default.
++func (po ProcessingOptions) saveOverrides() vips.SaveOverrides {
++	var ov vips.SaveOverrides
++
++	if po.Has(keys.Interlace) {
++		v := po.GetBool(keys.Interlace, false)
++		ov.Interlace = &v
++	}
++
++	return ov
++}
++
++// RotateFree is an arbitrary rotation angle in degrees, 0 when none was asked
++// for. Distinct from Rotate, which is limited to multiples of 90.
++func (po ProcessingOptions) RotateFree() float64 {
++	return po.GetFloat(keys.RotateFree, 0.0)
++}
++
++// RotateFreeEnabled reports whether a rotation that exposes transparent corners
++// was requested.
++func (po ProcessingOptions) RotateFreeEnabled() bool {
++	return po.RotateFree() != 0
++}
++
++func (po ProcessingOptions) Brightness() float64 {
++	return po.GetFloat(keys.Brightness, 0.0)
++}
++
++// Contrast multiplies every colour channel around mid-grey. 1 is neutral.
++func (po ProcessingOptions) Contrast() float64 {
++	return po.GetFloat(keys.Contrast, 1.0)
++}
++
++func (po ProcessingOptions) CircleEnabled() bool {
++	return po.Has(keys.CircleRadius)
++}
++
++func (po ProcessingOptions) CircleRadius() int {
++	return po.GetInt(keys.CircleRadius, 0)
++}
++
++func (po ProcessingOptions) RoundedCornersEnabled() bool {
++	return po.Has(keys.RoundedCornersRadius)
++}
++
++func (po ProcessingOptions) RoundedCornersRadius() int {
++	return po.GetInt(keys.RoundedCornersRadius, 0)
+--- upstream/processing/pipeline.go
++++ internal/processing/pipeline.go
+@@ -7 +7 @@
+-	"github.com/imgproxy/imgproxy/v4/server"
++	"github.com/imgproxy/imgproxy/v4/timeout"
+@@ -89 +89 @@
+-		if err := server.CheckTimeout(ctx); err != nil {
++		if err := timeout.Check(ctx); err != nil {
+--- upstream/processing/processing.go
++++ internal/processing/processing.go
+@@ -10,0 +11 @@
++	"github.com/imgproxy/imgproxy/v4/imageinfo"
+@@ -13 +14 @@
+-	"github.com/imgproxy/imgproxy/v4/server"
++	"github.com/imgproxy/imgproxy/v4/timeout"
+@@ -28,0 +30 @@
++		p.rotateFree,
+@@ -29,0 +32 @@
++		p.adjust,
+@@ -32,0 +36 @@
++		p.roundCorners,
+@@ -92,0 +97,6 @@
++	// The format the caller actually named, read before determineOutputFormat
++	// overwrites the same key with what it resolved. Unknown here means the
++	// caller named none — a bare transform, or format,auto — and that difference
++	// is what checkAnimationIsReadable turns on.
++	requestedFormat := po.Format()
++
+@@ -102,0 +113,7 @@
++
++	// An animation libvips cannot see is not the same thing as a still.
++	if !animated {
++		if err := p.checkAnimationIsReadable(img, imgdata, po, requestedFormat); err != nil {
++			return nil, err
++		}
++	}
+@@ -163,0 +181,82 @@
++// checkAnimationIsReadable refuses a source whose container holds an animation
++// this build of libvips cannot see, when the caller explicitly asked for a
++// format that could have carried it.
++//
++// APNG is the case that exists today. iXoSS's own header walk reads the acTL
++// chunk, so image/info reports the real frame count; no released libvips reads
++// APNG frames, so it loads the default image and reports one page. (APNG landed
++// in libvips master under an unreleased 8.19.0 heading, in the libpng path only
++// and behind PNG_APNG_SUPPORTED, so even that will depend on how the library was
++// built. The comparison below does not care.) The result was a silent flattening
++// of exactly the shape the frame cap's refusal removed:
++// ask for a three-frame APNG as WebP — a format that holds animation perfectly
++// well — and get a well-formed one-frame WebP back, while image/info goes on
++// saying three.
++//
++// The test is a comparison, not a list of formats and not a version check, so it
++// needs no maintenance. On the day libvips reads APNG, Pages() returns three,
++// the two numbers agree, and this stops firing by itself; any future container
++// where iXoSS's parser sees more frames than libvips does is covered by the
++// same line.
++//
++// Two things deliberately do not reach here:
++//
++//   - format,auto. There the caller delegated the choice of format, so choosing
++//     one that happens to be a still is the server's to make — answering a
++//     browser's Accept negotiation with 422 would be absurd.
++//   - a request with no format at all, and any still format. Flattening is the
++//     honest answer to "give me a JPEG", and it is the only possible answer for
++//     PNG output on a build whose pngsave cannot write APNG either.
++func (p *Processor) checkAnimationIsReadable(
++	img *vips.Image,
++	imgdata imagedata.ImageData,
++	po ProcessingOptions,
++	requestedFormat imagetype.Type,
++) error {
++	// requestedFormat is what the caller named, captured before
++	// determineOutputFormat writes its own answer over the same key. Unknown is
++	// what keeps format,auto and bare transforms out of here; reading po.Format()
++	// at this point would instead see the *resolved* format and refuse both.
++	if requestedFormat == imagetype.Unknown || !requestedFormat.SupportsAnimationSave() {
++		return nil
++	}
++	if po.MaxAnimationFrames() <= 1 {
++		// Configured to flatten everything. Still a valid way to run this, and
++		// refusing would contradict it.
++		return nil
++	}
++	if img.IsAnimated() {
++		return nil // libvips can see the frames; nothing is being lost
++	}
++
++	claimed := containerFrameCount(imgdata)
++	if claimed > img.Pages() {
++		return newAnimationNotReadableError(imgdata.Format(), claimed)
++	}
++
++	return nil
++}
++
++// containerFrameCount asks iXoSS's own header walk how many frames the file
++// claims, or 0 when it cannot say.
++//
++// The bytes are already in memory, so this is a parse and not a read. A count it
++// reports as a floor rather than the truth — a GIF longer than the header
++// window — is still safe to compare against: a floor can only be lower than the
++// real number, so it cannot manufacture a disagreement that is not there.
++func containerFrameCount(d imagedata.ImageData) int {
++	size, err := d.Size()
++	if err != nil {
++		return 0
++	}
++
++	info, err := imageinfo.Read(d.Reader(), int64(size))
++	if err != nil || info == nil {
++		// A container imageinfo does not parse, or a header it could not finish.
++		// Either way it has no claim to make.
++		return 0
++	}
++
++	return info.FrameCount
++}
++
+@@ -165 +264,2 @@
+-// For animated images, it loads all frames up to MaxAnimationFrames.
++// For animated images, it loads every frame, having first checked there are not
++// too many.
+@@ -172,2 +272,6 @@
+-	// If we are going to process the image as animated, we need to load all frames
+-	// up to MaxAnimationFrames
++	// This was min(img.Pages(), po.MaxAnimationFrames()), which quietly produced
++	// a shorter animation than the source: well-formed output, wrong length, and
++	// nothing anywhere to say so. checkImageSize below cannot catch it either —
++	// the frame count it multiplies by is the *loaded* one, so truncating first
++	// makes its arithmetic pass every time. Hence the check here, before the
++	// load, where the real count is still known.
+@@ -175,2 +279,5 @@
+-		frames := min(img.Pages(), po.MaxAnimationFrames())
+-		return img.Load(imgdata, 1.0, 0, frames)
++		pages := img.Pages()
++		if err := p.securityChecker.CheckAnimationFrames(po.Options, pages); err != nil {
++			return err
++		}
++		return img.Load(imgdata, 1.0, 0, pages)
+@@ -265,6 +372,11 @@
+-	imgdata, err = p.svg.Process(po.Options, imgdata)
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	// Return the original image
++	// imgproxy sanitizes SVG here via its svg.Processor. iXoSS dropped that
++	// path together with SVG detection: sanitizing needs imgproxy's xmlparser,
++	// which needs golang.org/x/net/html/charset, and iXoSS does not rasterize
++	// or serve vectors. Passing the bytes through unsanitized would be worse
++	// than not supporting them, so refuse instead.
++	if imgdata.Format() == imagetype.SVG {
++		return nil, newUnsupportedFormatError(imgdata.Format())
++	}
++
++	processedData := imgdata.Ref()
++
+@@ -272 +384 @@
+-		OutData:      imgdata,
++		OutData:      processedData,
+@@ -290,0 +403,3 @@
++	// circle and rounded-corners punch holes in an otherwise opaque image, so
++	// they have to count here too: without them a `circle/format,auto` request
++	// would be answered with JPEG and the corners flattened to the background.
+@@ -292 +407,3 @@
+-		(img.HasAlpha() || po.PaddingEnabled() || po.ExtendEnabled())
++		(img.HasAlpha() || po.PaddingEnabled() || po.ExtendEnabled() ||
++			po.CircleEnabled() || po.RoundedCornersEnabled() ||
++			po.RotateFreeEnabled())
+@@ -295,3 +412 @@
+-
+-	switch {
+-	case format == imagetype.SVG:
++	if format == imagetype.SVG {
+@@ -299,0 +415,33 @@
++	}
++	format = p.resolveOutputFormat(po, imgdata.Format(), animated, expectTransparency)
++
++	po.SetFormat(format)
++
++	if !vips.SupportsSave(format) {
++		return format, newSaveFormatError(format)
++	}
++
++	return format, nil
++}
++
++// SkipsProcessing reports whether ProcessImage would hand a source of type
++// source back untouched under o (IXOSS_SKIP_PROCESSING_FORMATS). Such a source
++// is never measured against the frame cap or the pixel budget, so a caller that
++// checks those early has to stand aside for it too.
++func (p *Processor) SkipsProcessing(o *options.Options, source imagetype.Type) bool {
++	return p.shouldSkipStandardProcessing(source, p.NewProcessingOptions(o))
++}
++
++// resolveOutputFormat is the choice determineOutputFormat makes, with the
++// decoded image reduced to the two facts it consults: whether the result is
++// animated, and whether it may need alpha. Kept separate so ProducesAnimation
++// can ask the same question before anything is decoded — two copies of this
++// switch would drift.
++func (p *Processor) resolveOutputFormat(
++	po ProcessingOptions,
++	source imagetype.Type,
++	animated, expectTransparency bool,
++) imagetype.Type {
++	format := po.Format()
++
++	switch {
+@@ -308,2 +456,2 @@
+-		case p.isImageTypePreferred(imgdata.Format()):
+-			format = imgdata.Format()
++		case p.isImageTypePreferred(source):
++			format = source
+@@ -321,7 +469,27 @@
+-	po.SetFormat(format)
+-
+-	if !vips.SupportsSave(format) {
+-		return format, newSaveFormatError(format)
+-	}
+-
+-	return format, nil
++	return format
++}
++
++// ProducesAnimation reports whether ProcessImage, given an animated source of
++// type source, would write an animated result — and so would hold the source to
++// the frame cap and to the pixel budget for every frame.
++//
++// It answers from options alone, for a caller that has only the source's
++// header. Transparency is the one decoded fact the choice can turn on (through
++// the preferred-format fallback), so both possibilities are tried and the
++// answer is yes only when they agree. A caller using this to refuse early can
++// therefore only ever refuse what ProcessImage itself would refuse.
++func (p *Processor) ProducesAnimation(o *options.Options, source imagetype.Type) bool {
++	po := p.NewProcessingOptions(o)
++	if po.MaxAnimationFrames() <= 1 {
++		return false
++	}
++	if po.Format() == imagetype.SVG || p.shouldSkipStandardProcessing(source, po) {
++		return false
++	}
++	for _, alpha := range [...]bool{false, true} {
++		f := p.resolveOutputFormat(po, source, true, alpha)
++		if !f.SupportsAnimationSave() || !vips.SupportsSave(f) {
++			return false
++		}
++	}
++	return true
+@@ -447 +615 @@
+-			if err = server.CheckTimeout(ctx); err != nil {
++			if err = timeout.Check(ctx); err != nil {
+@@ -525,0 +694,2 @@
++	ov := po.saveOverrides()
++
+@@ -527 +697 @@
+-		return saveImageToFitBytes(ctx, img, outFormat, quality, maxBytes, po.Options)
++		return saveImageToFitBytes(ctx, img, outFormat, quality, maxBytes, po.Options, ov)
+@@ -531,2 +701,2 @@
+-	return img.Save(outFormat, quality, po.Options)
+-}
++	return img.Save(outFormat, quality, ov)
++}
+--- upstream/processing/processor.go
++++ internal/processing/processor.go
+@@ -5 +4,0 @@
+-	"github.com/imgproxy/imgproxy/v4/processing/svg"
+@@ -14 +12,0 @@
+-	svg               *svg.Processor
+@@ -31 +28,0 @@
+-		svg:               svg.New(&config.Svg),
+--- upstream/processing/resize_type.go
++++ internal/processing/resize_type.go
+@@ -4,0 +5 @@
++	"log/slog"
+@@ -36,0 +38,4 @@
++
++func (rt ResizeType) LogValue() slog.Value {
++	return slog.StringValue(rt.String())
++}
+--- /dev/null
++++ internal/processing/rotate_free.go
+@@ -0,0 +1,26 @@
++package processing
++
++// rotateFree applies a rotation by an angle that is not a multiple of 90.
++//
++// It is a separate step from rotateAndFlip, and runs after cropToResult, for one
++// reason: a free rotation changes the canvas size, and every size the pipeline
++// computed up front — ScaledWidth, ResultCropWidth and the rest — describes the
++// image *before* it. Rotating earlier would leave cropToResult cutting the
++// rotated frame back to the requested box and shearing off the corners the
++// rotation just created, which is not what `resize,m_fill,w_100,h_100/rotate,45`
++// asks for.
++//
++// This step is an iXoSS addition; imgproxy only rotates by multiples of 90.
++func (p *Processor) rotateFree(c *Context) error {
++	angle := c.PO.RotateFree()
++	if angle == 0 {
++		return nil
++	}
++
++	// The rotation reads the whole frame in random order.
++	if err := c.Img.CopyMemory(); err != nil {
++		return err
++	}
++
++	return c.Img.RotateAny(angle)
++}
+--- /dev/null
++++ internal/processing/round_corners.go
+@@ -0,0 +1,64 @@
++package processing
++
++// roundCorners applies the `circle` and `rounded-corners` options, both of which
++// end up as an alpha mask over the finished image.
++//
++// The two differ only in whether the image is squared first: OSS's `circle`
++// returns a (2r+1)-square containing an inscribed circle, while
++// `rounded-corners` keeps the frame and only rounds it.
++//
++// This step is an iXoSS addition; imgproxy has neither option.
++func (p *Processor) roundCorners(c *Context) error {
++	circle := c.PO.CircleEnabled()
++	rounded := c.PO.RoundedCornersEnabled()
++
++	if !circle && !rounded {
++		return nil
++	}
++
++	w, h := c.Img.Width(), c.Img.Height()
++	if c.Img.IsAnimated() {
++		// Animated images are processed frame by frame, but the guard costs
++		// nothing and keeps a stacked strip from being masked as one tall image
++		// if that ever changes.
++		h = c.Img.PageHeight()
++	}
++
++	// The mask is built in 8-bit sRGB, so the alpha it produces matches the
++	// colour bands it is joined to.
++	if err := c.Img.RgbColourspace(); err != nil {
++		return err
++	}
++
++	var radius int
++
++	if circle {
++		// OSS clamps a too-large radius to the largest inscribed circle and
++		// returns a (2r+1)-square, so an odd-sized result is expected even from
++		// an even-sized source.
++		radius = min(c.PO.CircleRadius(), (min(w, h)-1)/2)
++		if radius < 1 {
++			return nil
++		}
++
++		size := 2*radius + 1
++		if err := c.Img.Crop((w-size)/2, (h-size)/2, size, size); err != nil {
++			return err
++		}
++	} else {
++		// A radius of half the shorter side is a full arc on that axis; beyond
++		// that the shape stops changing, so OSS clamps there too.
++		radius = min(c.PO.RoundedCornersRadius(), min(w, h)/2)
++		if radius < 1 {
++			return nil
++		}
++	}
++
++	// The mask walks the whole image; a sequential source behind it would be
++	// read out of order.
++	if err := c.Img.CopyMemory(); err != nil {
++		return err
++	}
++
++	return c.Img.RoundCorners(float64(radius))
++}
+--- upstream/processing/save_fit_bytes.go
++++ internal/processing/save_fit_bytes.go
+@@ -11 +11 @@
+-	"github.com/imgproxy/imgproxy/v4/server"
++	"github.com/imgproxy/imgproxy/v4/timeout"
+@@ -24,0 +25 @@
++	ov vips.SaveOverrides,
+@@ -40 +41 @@
+-		if err := server.CheckTimeout(ctx); err != nil {
++		if err := timeout.Check(ctx); err != nil {
+@@ -46 +47 @@
+-		imgdata, err := img.Save(format, quality, o)
++		imgdata, err := img.Save(format, quality, ov)
+--- upstream/security/checker.go
++++ internal/security/checker.go
+@@ -51,0 +52,24 @@
++// CheckAnimationFrames refuses a source with more frames than the cap allows.
++//
++// Separate from CheckDimensions for two reasons. It has to run *before* the
++// frames are loaded, because the alternative is what this replaced: the pipeline
++// loaded the first MaxAnimationFrames of them and carried on, so a 500-frame GIF
++// came back as a well-formed 300-frame animation with nothing to say it had been
++// cut. And the pixel check cannot catch that, because the frame count it
++// multiplies by is the *loaded* one — truncating first makes the product check
++// pass trivially, every time.
++//
++// Refusing is what OSS does with a source past its limits, and it is the only
++// answer consistent with the info endpoint, which reports the source's real
++// frame count. Two endpoints disagreeing about how long an animation is would be
++// worse than either answer on its own.
++//
++// Only animated *output* gets here. The same GIF asked for as JPEG or AVIF drops
++// its animation on a different path and is unaffected.
++func (s *Checker) CheckAnimationFrames(o *options.Options, frames int) error {
++	if limit := s.MaxAnimationFrames(o); frames > limit {
++		return newAnimationFramesError(frames, limit)
++	}
++	return nil
++}
++
+@@ -59 +83 @@
+-		if width*height > maxFrameRes {
++		if exceedsPixelLimit(width, height, 1, maxFrameRes) {
+@@ -65 +89 @@
+-	if width*height*frames > s.MaxSrcResolution(o) {
++	if exceedsPixelLimit(width, height, frames, s.MaxSrcResolution(o)) {
+@@ -70,0 +95,12 @@
++
++// Compare by division before multiplication: dimensions and frame counts come
++// from untrusted headers, and a wrapped product could pass the pixel budget.
++func exceedsPixelLimit(width, height, frames, limit int) bool {
++	if width <= 0 || height <= 0 || frames <= 0 || limit <= 0 {
++		return true
++	}
++	if width > limit/height {
++		return true
++	}
++	return frames > limit/(width*height)
++}
+--- upstream/security/config.go
++++ internal/security/config.go
+@@ -6 +5,0 @@
+-	"regexp"
+@@ -13,5 +12,4 @@
+-	IMGPROXY_ALLOWED_SOURCES    = env.URLPatterns("IMGPROXY_ALLOWED_SOURCES")
+-	IMGPROXY_KEY                = env.HexSlice("IMGPROXY_KEY")
+-	IMGPROXY_SALT               = env.HexSlice("IMGPROXY_SALT")
+-	IMGPROXY_SIGNATURE_SIZE     = env.Int("IMGPROXY_SIGNATURE_SIZE")
+-	IMGPROXY_TRUSTED_SIGNATURES = env.StringSlice("IMGPROXY_TRUSTED_SIGNATURES")
++	IXOSS_KEY                = env.HexSlice("IXOSS_KEY")
++	IXOSS_SALT               = env.HexSlice("IXOSS_SALT")
++	IXOSS_SIGNATURE_SIZE     = env.Int("IXOSS_SIGNATURE_SIZE")
++	IXOSS_TRUSTED_SIGNATURES = env.StringSlice("IXOSS_TRUSTED_SIGNATURES")
+@@ -19,5 +17,5 @@
+-	IMGPROXY_MAX_SRC_RESOLUTION             = env.MegaInt("IMGPROXY_MAX_SRC_RESOLUTION")
+-	IMGPROXY_MAX_SRC_FILE_SIZE              = env.Int("IMGPROXY_MAX_SRC_FILE_SIZE")
+-	IMGPROXY_MAX_ANIMATION_FRAMES           = env.Int("IMGPROXY_MAX_ANIMATION_FRAMES")
+-	IMGPROXY_MAX_ANIMATION_FRAME_RESOLUTION = env.MegaInt("IMGPROXY_MAX_ANIMATION_FRAME_RESOLUTION")
+-	IMGPROXY_MAX_RESULT_DIMENSION           = env.Int("IMGPROXY_MAX_RESULT_DIMENSION")
++	IXOSS_MAX_SRC_RESOLUTION             = env.MegaInt("IXOSS_MAX_SRC_RESOLUTION")
++	IXOSS_MAX_SRC_FILE_SIZE              = env.Int("IXOSS_MAX_SRC_FILE_SIZE")
++	IXOSS_MAX_ANIMATION_FRAMES           = env.Int("IXOSS_MAX_ANIMATION_FRAMES")
++	IXOSS_MAX_ANIMATION_FRAME_RESOLUTION = env.MegaInt("IXOSS_MAX_ANIMATION_FRAME_RESOLUTION")
++	IXOSS_MAX_RESULT_DIMENSION           = env.Int("IXOSS_MAX_RESULT_DIMENSION")
+@@ -28,5 +26,4 @@
+-	AllowedSources    []*regexp.Regexp // List of allowed source URL patterns (empty = allow all)
+-	Keys              [][]byte         // List of the HMAC keys
+-	Salts             [][]byte         // List of the HMAC salts
+-	SignatureSize     int              // Size of the HMAC signature in bytes
+-	TrustedSignatures []string         // List of trusted signature sources
++	Keys              [][]byte // List of the HMAC keys
++	Salts             [][]byte // List of the HMAC salts
++	SignatureSize     int      // Size of the HMAC signature in bytes
++	TrustedSignatures []string // List of trusted signature sources
+@@ -40,0 +38,41 @@
++// DefaultMaxAnimationFrames is the frame cap, and the one place iXoSS departs
++// from imgproxy's defaults on purpose.
++//
++// imgproxy ships 1, which means "never process anything as animated": a
++// three-frame GIF asked for as WebP comes back as a still of its first frame,
++// silently. That is a defensible default for a proxy pointed at the open
++// internet. It is the wrong one here, because iXoSS's job is to answer the way
++// OSS answers, and OSS keeps the animation through resize, crop and watermark.
++//
++// The number is not the real budget. That is CheckDimensions' width x height x
++// frames against MaxSrcResolution — the same product OSS uses, and the reason
++// raising this cap does not open a hole of its own: at 300 frames the pixel
++// budget refuses anything past roughly 912x912 per frame whatever this says.
++// What this cap governs is the per-frame overhead a pixel count cannot see,
++// which is why a small-but-endless animation still needs a limit. 300 clears
++// essentially every real animation — most are under 100 frames, and a long
++// screen recording runs to a few hundred.
++const DefaultMaxAnimationFrames = 300
++
++// DefaultMaxSrcResolution is the pixel budget: width x height x frames, the same
++// product OSS bounds, at the same number OSS bounds it.
++//
++// Matching OSS is the whole reason for the value, and it is worth being explicit
++// about what it costs, because the answer depends entirely on what the request
++// asks for. Measured on a 17000x14000 JPEG (238 MP) with IXOSS_CONCURRENCY=1,
++// peak RSS over the request:
++//
++//	resize,w_200    58 MiB   shrink-on-load; the full frame never exists
++//	format,jpg     787 MiB   full-size transcode
++//	format,webp   1143 MiB   full-size transcode
++//
++// So a thumbnailing workload sits near nothing and a full-size transcode near
++// the ceiling costs about a gigabyte, multiplied by IXOSS_CONCURRENCY.
++// IXOSS_MAX_SOURCE_BYTES (100 MiB) bounds the file but not the pixel count —
++// a 238 MP JPEG of a flat colour is under 4 MiB — so it is not a substitute for
++// sizing the box.
++//
++// Lower it if the deployment does not need OSS's ceiling; 50_000_000 was the
++// previous default and is a comfortable fit for a small instance.
++const DefaultMaxSrcResolution = 250_000_000
++
+@@ -46 +84 @@
+-		MaxSrcResolution:            50_000_000,
++		MaxSrcResolution:            DefaultMaxSrcResolution,
+@@ -48 +86 @@
+-		MaxAnimationFrames:          1,
++		MaxAnimationFrames:          DefaultMaxAnimationFrames,
+@@ -59,3 +97,2 @@
+-		IMGPROXY_ALLOWED_SOURCES.Parse(&c.AllowedSources),
+-		IMGPROXY_SIGNATURE_SIZE.Parse(&c.SignatureSize),
+-		IMGPROXY_TRUSTED_SIGNATURES.Parse(&c.TrustedSignatures),
++		IXOSS_SIGNATURE_SIZE.Parse(&c.SignatureSize),
++		IXOSS_TRUSTED_SIGNATURES.Parse(&c.TrustedSignatures),
+@@ -63,5 +100,5 @@
+-		IMGPROXY_MAX_SRC_RESOLUTION.Parse(&c.MaxSrcResolution),
+-		IMGPROXY_MAX_SRC_FILE_SIZE.Parse(&c.MaxSrcFileSize),
+-		IMGPROXY_MAX_ANIMATION_FRAMES.Parse(&c.MaxAnimationFrames),
+-		IMGPROXY_MAX_ANIMATION_FRAME_RESOLUTION.Parse(&c.MaxAnimationFrameResolution),
+-		IMGPROXY_MAX_RESULT_DIMENSION.Parse(&c.MaxResultDimension),
++		IXOSS_MAX_SRC_RESOLUTION.Parse(&c.MaxSrcResolution),
++		IXOSS_MAX_SRC_FILE_SIZE.Parse(&c.MaxSrcFileSize),
++		IXOSS_MAX_ANIMATION_FRAMES.Parse(&c.MaxAnimationFrames),
++		IXOSS_MAX_ANIMATION_FRAME_RESOLUTION.Parse(&c.MaxAnimationFrameResolution),
++		IXOSS_MAX_RESULT_DIMENSION.Parse(&c.MaxResultDimension),
+@@ -69,2 +106,2 @@
+-		IMGPROXY_KEY.Parse(&c.Keys),
+-		IMGPROXY_SALT.Parse(&c.Salts),
++		IXOSS_KEY.Parse(&c.Keys),
++		IXOSS_SALT.Parse(&c.Salts),
+@@ -79 +116 @@
+-		return IMGPROXY_MAX_SRC_RESOLUTION.ErrorZeroOrNegative()
++		return IXOSS_MAX_SRC_RESOLUTION.ErrorZeroOrNegative()
+@@ -83 +120 @@
+-		return IMGPROXY_MAX_SRC_FILE_SIZE.ErrorNegative()
++		return IXOSS_MAX_SRC_FILE_SIZE.ErrorNegative()
+@@ -87 +124 @@
+-		return IMGPROXY_MAX_ANIMATION_FRAMES.ErrorZeroOrNegative()
++		return IXOSS_MAX_ANIMATION_FRAMES.ErrorZeroOrNegative()
+@@ -98 +135 @@
+-		IMGPROXY_KEY.Warn("No keys defined, signature checking is disabled")
++		IXOSS_KEY.Warn("No keys defined, signature checking is disabled")
+@@ -102 +139 @@
+-		IMGPROXY_SALT.Warn("No salts defined, signature checking is disabled")
++		IXOSS_SALT.Warn("No salts defined, signature checking is disabled")
+@@ -106 +143 @@
+-		return IMGPROXY_SIGNATURE_SIZE.Errorf("invalid size")
++		return IXOSS_SIGNATURE_SIZE.Errorf("invalid size")
+--- upstream/security/errors.go
++++ internal/security/errors.go
+@@ -14 +14 @@
+-	SourceURLError       struct{ *errctx.TextError }
++	AnimationFramesError struct{ *errctx.TextError }
+@@ -15,0 +16,19 @@
++
++// newAnimationFramesError reports a source animation longer than the cap.
++//
++// The public message carries both numbers, unlike its resolution sibling which
++// says only "Invalid source image". Nothing is given away by that: the frame
++// count is exactly what `image/info` returns for the same object, and the caller
++// cannot act on "invalid" — they can act on "this is 500 frames and the limit is
++// 300".
++func newAnimationFramesError(frames, limit int) error {
++	msg := fmt.Sprintf("Source animation has %d frames, limit is %d", frames, limit)
++
++	return AnimationFramesError{errctx.NewTextError(
++		msg,
++		1,
++		errctx.WithStatusCode(http.StatusUnprocessableEntity),
++		errctx.WithPublicMessage(msg),
++		errctx.WithShouldReport(false),
++	)}
++}
+@@ -51,11 +69,0 @@
+-
+-func newSourceURLError(imageURL string) error {
+-	return SourceURLError{errctx.NewTextError(
+-		fmt.Sprintf("Source URL is not allowed: %s", imageURL),
+-		1,
+-		errctx.WithStatusCode(http.StatusNotFound),
+-		errctx.WithPublicMessage("Invalid source URL"),
+-		errctx.WithShouldReport(false),
+-		errctx.WithDocsURL("https://docs.imgproxy.net/configuration/options#IMGPROXY_ALLOWED_SOURCES"),
+-	)}
+-}
+--- upstream/security/signature.go
++++ internal/security/signature.go
+@@ -7,0 +8 @@
++	"errors"
+@@ -10,0 +12,28 @@
++
++// SignatureEnabled reports whether signature checking is actually configured,
++// which needs both IXOSS_KEY and IXOSS_SALT.
++//
++// Callers use this to decide whether to check at all. VerifySignature is not
++// enough for that on its own: with no keys it accepts everything except a
++// signature containing a colon, which is imgproxy's guard against a URL whose
++// signature segment is really a processing segment — a URL shape iXoSS does not
++// have.
++func (s *Checker) SignatureEnabled() bool {
++	return len(s.config.Keys) > 0 && len(s.config.Salts) > 0
++}
++
++// Sign returns the signature for path under the first configured key and salt.
++// It is the inverse of VerifySignature, and what cmd/sign prints.
++func (s *Checker) Sign(path string) (string, error) {
++	if !s.SignatureEnabled() {
++		return "", errors.New("signing needs both IXOSS_KEY and IXOSS_SALT")
++	}
++	return Sign(path, s.config.Keys[0], s.config.Salts[0], s.config.SignatureSize), nil
++}
++
++// Sign returns the HMAC of path under key and salt, truncated to signatureSize
++// bytes and base64url-encoded without padding — the encoding VerifySignature
++// decodes.
++func Sign(path string, key, salt []byte, signatureSize int) string {
++	return base64.RawURLEncoding.EncodeToString(signatureFor(path, key, salt, signatureSize))
++}
+--- upstream/vips/config.go
++++ internal/vips/config.go
+@@ -8 +8,3 @@
+-	"errors"
++	"fmt"
++	"os"
++	"strconv"
+@@ -11 +12,0 @@
+-	"github.com/imgproxy/imgproxy/v4/env"
+@@ -14,15 +15,6 @@
+-var (
+-	IMGPROXY_JPEG_PROGRESSIVE        = env.Bool("IMGPROXY_JPEG_PROGRESSIVE")
+-	IMGPROXY_PNG_INTERLACED          = env.Bool("IMGPROXY_PNG_INTERLACED")
+-	IMGPROXY_PNG_QUANTIZE            = env.Bool("IMGPROXY_PNG_QUANTIZE")
+-	IMGPROXY_PNG_QUANTIZATION_COLORS = env.Int("IMGPROXY_PNG_QUANTIZATION_COLORS")
+-	IMGPROXY_WEBP_PRESET             = env.Enum("IMGPROXY_WEBP_PRESET", WebpPresets)
+-	IMGPROXY_AVIF_SPEED              = env.Int("IMGPROXY_AVIF_SPEED")
+-	IMGPROXY_WEBP_EFFORT             = env.Int("IMGPROXY_WEBP_EFFORT")
+-	IMGPROXY_JXL_EFFORT              = env.Int("IMGPROXY_JXL_EFFORT")
+-	IMGPROXY_PNG_UNLIMITED           = env.Bool("IMGPROXY_PNG_UNLIMITED")
+-	IMGPROXY_SVG_UNLIMITED           = env.Bool("IMGPROXY_SVG_UNLIMITED")
+-	IMGPROXY_VIPS_LEAK_CHECK         = env.Bool("IMGPROXY_VIPS_LEAK_CHECK")
+-	IMGPROXY_VIPS_CACHE_TRACE        = env.Bool("IMGPROXY_VIPS_CACHE_TRACE")
+-)
+-
++// Config mirrors imgproxy's vips.Config field for field, so the C-side option
++// structs and every save path below behave identically.
++//
++// What changed is only how it gets filled. imgproxy's env package can pull
++// values out of AWS Secrets Manager, AWS SSM and GCP Secret Manager, which is
++// why it drags in three cloud SDKs. iXoSS reads plain environment variables.
+@@ -43 +35 @@
+-	// AVIF saving speed
++	// AVIF saving speed (0 slowest/smallest .. 9 fastest/largest)
+@@ -52 +44 @@
+-	// Whether to not apply any limits when loading JPEG
++	// Whether to not apply any limits when loading SVG
+@@ -53,0 +46,2 @@
++	// Whether to not apply any limits when loading TIFF
++	TiffUnlimited bool
+@@ -70,0 +65,3 @@
++		// AVIF speed 8 is imgproxy's default and matches what we measured:
++		// on 2 vCPU a 2400x1350 frame encodes in ~0.19s at s8 versus ~0.38s at
++		// s6 and ~7.6s at s0. s6 is the size/time knee if you have the CPU.
+@@ -75,2 +72,3 @@
+-		PngUnlimited: false,
+-		SvgUnlimited: false,
++		PngUnlimited:  false,
++		SvgUnlimited:  false,
++		TiffUnlimited: false,
+@@ -86,10 +84,21 @@
+-	err := errors.Join(
+-		IMGPROXY_JPEG_PROGRESSIVE.Parse(&c.JpegProgressive),
+-		IMGPROXY_PNG_INTERLACED.Parse(&c.PngInterlaced),
+-		IMGPROXY_PNG_QUANTIZE.Parse(&c.PngQuantize),
+-		IMGPROXY_PNG_QUANTIZATION_COLORS.Parse(&c.PngQuantizationColors),
+-		IMGPROXY_AVIF_SPEED.Parse(&c.AvifSpeed),
+-		IMGPROXY_WEBP_EFFORT.Parse(&c.WebpEffort),
+-		IMGPROXY_JXL_EFFORT.Parse(&c.JxlEffort),
+-		IMGPROXY_PNG_UNLIMITED.Parse(&c.PngUnlimited),
+-		IMGPROXY_SVG_UNLIMITED.Parse(&c.SvgUnlimited),
++	var errs []error
++	envBool := func(name string, dst *bool) {
++		if v, ok := os.LookupEnv(name); ok {
++			b, err := strconv.ParseBool(v)
++			if err != nil {
++				errs = append(errs, fmt.Errorf("%s: expected a boolean, got %q", name, v))
++				return
++			}
++			*dst = b
++		}
++	}
++	envInt := func(name string, dst *int) {
++		if v, ok := os.LookupEnv(name); ok {
++			i, err := strconv.Atoi(v)
++			if err != nil {
++				errs = append(errs, fmt.Errorf("%s: expected an integer, got %q", name, v))
++				return
++			}
++			*dst = i
++		}
++	}
+@@ -97,4 +106,12 @@
+-		IMGPROXY_WEBP_PRESET.Parse(&c.WebpPreset),
+-		IMGPROXY_VIPS_LEAK_CHECK.Parse(&c.LeakCheck),
+-		IMGPROXY_VIPS_CACHE_TRACE.Parse(&c.CacheTrace),
+-	)
++	envBool("IXOSS_JPEG_PROGRESSIVE", &c.JpegProgressive)
++	envBool("IXOSS_PNG_INTERLACED", &c.PngInterlaced)
++	envBool("IXOSS_PNG_QUANTIZE", &c.PngQuantize)
++	envInt("IXOSS_PNG_QUANTIZATION_COLORS", &c.PngQuantizationColors)
++	envInt("IXOSS_AVIF_SPEED", &c.AvifSpeed)
++	envInt("IXOSS_WEBP_EFFORT", &c.WebpEffort)
++	envInt("IXOSS_JXL_EFFORT", &c.JxlEffort)
++	envBool("IXOSS_PNG_UNLIMITED", &c.PngUnlimited)
++	envBool("IXOSS_SVG_UNLIMITED", &c.SvgUnlimited)
++	envBool("IXOSS_TIFF_UNLIMITED", &c.TiffUnlimited)
++	envBool("IXOSS_VIPS_LEAK_CHECK", &c.LeakCheck)
++	envBool("IXOSS_VIPS_CACHE_TRACE", &c.CacheTrace)
+@@ -102 +119,27 @@
+-	return c, err
++	if v, ok := os.LookupEnv("IXOSS_WEBP_PRESET"); ok {
++		p, ok := WebpPresets[v]
++		if !ok {
++			errs = append(errs, fmt.Errorf("IXOSS_WEBP_PRESET: unknown preset %q", v))
++		} else {
++			c.WebpPreset = p
++		}
++	}
++
++	if len(errs) > 0 {
++		return c, joinErrors(errs)
++	}
++	return c, nil
++}
++
++func joinErrors(errs []error) error {
++	if len(errs) == 1 {
++		return errs[0]
++	}
++	msg := ""
++	for i, e := range errs {
++		if i > 0 {
++			msg += "; "
++		}
++		msg += e.Error()
++	}
++	return fmt.Errorf("%s", msg)
+@@ -107 +150 @@
+-		return IMGPROXY_PNG_QUANTIZATION_COLORS.ErrorRange()
++		return fmt.Errorf("IXOSS_PNG_QUANTIZATION_COLORS: must be between 2 and 256, got %d", c.PngQuantizationColors)
+@@ -111 +154 @@
+-		return IMGPROXY_WEBP_PRESET.ErrorRange()
++		return fmt.Errorf("IXOSS_WEBP_PRESET: out of range")
+@@ -115 +158 @@
+-		return IMGPROXY_AVIF_SPEED.ErrorRange()
++		return fmt.Errorf("IXOSS_AVIF_SPEED: must be between 0 and 9, got %d", c.AvifSpeed)
+@@ -119 +162 @@
+-		return IMGPROXY_JXL_EFFORT.ErrorRange()
++		return fmt.Errorf("IXOSS_JXL_EFFORT: must be between 1 and 9, got %d", c.JxlEffort)
+@@ -123 +166 @@
+-		return IMGPROXY_WEBP_EFFORT.ErrorRange()
++		return fmt.Errorf("IXOSS_WEBP_EFFORT: must be between 1 and 6, got %d", c.WebpEffort)
+--- upstream/vips/errors.go
++++ internal/vips/errors.go
+@@ -9,0 +10,10 @@
++// badImageErrRe recognises a libvips error as the source's fault: 422, not 500.
++//
++// Every pattern is multi-line. libvips accumulates its error buffer, so the
++// loader's line is often not the first — libtiff logs TIFFFillStrip before
++// tiff2vips reports, libheif's reader logs "bad seek" before heif does. An
++// anchor that only looked at the first line sent every one of those to 500.
++//
++// Each prefix is a *load* domain on purpose. "heif:" is shared with the
++// encoder, so only libheif's input-side categories count; an encoder failure
++// is still ours. webp's saver reports as "vips2webp", never "webp:".
+@@ -11,3 +21,3 @@
+-	regexp.MustCompile(`^(\S+)load_source: `),
+-	regexp.MustCompile(`^(\S+)2vips: `),
+-	regexp.MustCompile(`^VipsJpeg: `),
++	regexp.MustCompile(`(?m)^(\S+)load_source: `),
++	regexp.MustCompile(`(?m)^(\S+)2vips: `),
++	regexp.MustCompile(`(?m)^VipsJpeg: `),
+@@ -14,0 +25,5 @@
++	// iXoSS's own BMP and ICO loaders (bmpload.c, icoload.c).
++	regexp.MustCompile(`(?m)^vips_foreign_load_\S+: `),
++	regexp.MustCompile(`(?m)^vips__tiff_openin_source: `),
++	regexp.MustCompile(`(?m)^webp: `),
++	regexp.MustCompile(`(?m)^heif: (Invalid input|Unsupported feature|Unsupported file-?type)`),
+--- upstream/vips/icoload.c
++++ internal/vips/icoload.c
+@@ -11,7 +11,3 @@
+-// Maximum size of an ICO entry data block.
+-// Maximum image size in ICO is 256x256 pixels,
+-// which gives a maximum of 256 * 256 * 4 bytes for raw RGBA data.
+-// 10 MB should be enough for any ICO entry data block,
+-// even if an embedded PNG contains metadata.
+-// Data blocks larger than this should be considered malicious.
+-#define MAX_ICO_ENTRY_DATA_SIZE 10 * 1024 * 1024
++// ICO entries are at most 256x256 pixels. Allow metadata in embedded PNGs,
++// but reject oversized declarations before allocation (imgproxy a821b6a).
++#define MAX_ICO_ENTRY_DATA_SIZE (10 * 1024 * 1024)
+@@ -99 +95,2 @@
+-  VIPS_FREE(user_data);
++  (void) self;
++  g_free(user_data);
+@@ -164 +160,0 @@
+-  // Check if the data size exceeds the maximum allowed ICO entry data size.
+@@ -178 +173,0 @@
+-
+@@ -181,0 +177 @@
++    g_free(data);
+@@ -183 +178,0 @@
+-    VIPS_FREE(data);
+@@ -197 +192 @@
+-      VIPS_FREE(data);
++      g_free(data);
+@@ -207 +202,2 @@
+-    // Ensure the data buffer is large enough to contain the BMP header.
++    // Check the payload, excluding our prepended file header (imgproxy
++    // 39fd9e8). The following reads require a complete BITMAPINFOHEADER.
+@@ -208,0 +205 @@
++      g_free(data);
+@@ -210 +206,0 @@
+-      VIPS_FREE(data);
+@@ -250 +246 @@
+-      VIPS_FREE(data);
++      g_free(data);
+--- upstream/vips/options.go
++++ internal/vips/options.go
+@@ -7,3 +6,0 @@
+-import (
+-	"github.com/imgproxy/imgproxy/v4/options"
+-)
+@@ -19,2 +16,3 @@
+-		PngUnlimited: gbool(config.PngUnlimited),
+-		SvgUnlimited: gbool(config.SvgUnlimited),
++		PngUnlimited:  gbool(config.PngUnlimited),
++		SvgUnlimited:  gbool(config.SvgUnlimited),
++		TiffUnlimited: gbool(config.TiffUnlimited),
+@@ -24 +22,28 @@
+-func newSaveOptions(_ *options.Options) C.ImgproxySaveOptions {
++// SaveOverrides are per-request adjustments to the process-wide save config.
++//
++// Everything else in ImgproxySaveOptions is a deployment decision — encoder
++// effort, quantisation, WebP preset — and stays in the config. Interlacing is
++// the exception because OSS exposes it per URL (`image/interlace,1`), so it
++// needs a way in that does not mean handing this package the options bag it was
++// deliberately decoupled from.
++//
++// A nil field means "whatever the config says".
++type SaveOverrides struct {
++	// Interlace turns on progressive JPEG and interlaced PNG.
++	Interlace *bool
++}
++
++// newSaveOptions builds the C-side save options from the process-wide config,
++// with any per-request overrides applied on top.
++//
++// imgproxy took a *options.Options here but never read it; iXoSS drops the
++// parameter so the whole options package stays out of the dependency graph.
++func newSaveOptions(ov SaveOverrides) C.ImgproxySaveOptions {
++	progressive := config.JpegProgressive
++	interlaced := config.PngInterlaced
++
++	if ov.Interlace != nil {
++		progressive = *ov.Interlace
++		interlaced = *ov.Interlace
++	}
++
+@@ -26 +51 @@
+-		JpegProgressive: gbool(config.JpegProgressive),
++		JpegProgressive: gbool(progressive),
+@@ -28 +53 @@
+-		PngInterlaced:         gbool(config.PngInterlaced),
++		PngInterlaced:         gbool(interlaced),
+--- upstream/vips/options.h
++++ internal/vips/options.h
+@@ -10,2 +10,3 @@
+-  gboolean PngUnlimited; // Whether to disable vips_pngload limits.
+-  gboolean SvgUnlimited; // Whether to disable vips_svgload limits.
++  gboolean PngUnlimited;  // Whether to disable vips_pngload limits.
++  gboolean SvgUnlimited;  // Whether to disable vips_svgload limits.
++  gboolean TiffUnlimited; // Whether to disable vips_tiffload limits.
+--- upstream/vips/vips.c
++++ internal/vips/vips.c
+@@ -6,0 +7,7 @@
++// jxlload gained animation support — and with it the `page` and `n` load
++// options — in libvips 8.16. Passing them to an older loader is not ignored:
++// vips_jxlload_source fails outright with "no property named `page'", so every
++// JXL *source* is unreadable on 8.15 even though JXL output works fine.
++#define VIPS_JXL_HAS_PAGES \
++  (VIPS_MAJOR_VERSION > 8 || (VIPS_MAJOR_VERSION == 8 && VIPS_MINOR_VERSION >= 16))
++
+@@ -11,0 +19,29 @@
++// tiffload's `unlimited` is the same trap as jxlload's `page`, and it needs more
++// than a version check to avoid.
++//
++// libvips 8.17 added it, so a version macro would cover the common case. But the
++// ChangeLog entry says "requires libtiff 4.7.0+": libvips registers the property
++// only when the libtiff it was built against is new enough, so an 8.17 built on
++// libtiff 4.6 registers no `unlimited` and fails exactly like 8.15 does. The
++// version number cannot answer that. Asking the operation class whether the
++// property exists can, and it costs one lookup at startup.
++static gboolean tiffload_unlimited = FALSE;
++
++// Reports whether an operation takes an argument of this name, by asking its
++// class rather than inferring it from VIPS_MAJOR/MINOR_VERSION.
++gboolean
++vips_operation_has_argument(const char *nickname, const char *name)
++{
++  VipsObjectClass *class = (VipsObjectClass *) vips_class_find("VipsOperation", nickname);
++  if (!class)
++    return FALSE;
++
++  return g_object_class_find_property(G_OBJECT_CLASS(class), name) != NULL;
++}
++
++gboolean
++vips_tiffload_supports_unlimited()
++{
++  return tiffload_unlimited;
++}
++
+@@ -33 +69,8 @@
+-  return vips_init("imgproxy");
++  int res = vips_init("imgproxy");
++  if (res)
++    return res;
++
++  // After vips_init, so the loader classes are registered and can be asked.
++  tiffload_unlimited = vips_operation_has_argument("tiffload_source", "unlimited");
++
++  return 0;
+@@ -91 +134 @@
+-// loads xjl from source
++// loads jxl from source
+@@ -94,0 +138 @@
++#if VIPS_JXL_HAS_PAGES
+@@ -100,0 +145,12 @@
++#else
++  // Pre-8.16 this loader has no concept of pages, so it always yields the first
++  // frame. That is consistent rather than wrong: without page metadata
++  // Image.IsAnimated() stays false, so the animated path is never entered and
++  // nothing downstream expects frames that are not there.
++  (void) lo;
++
++  return vips_jxlload_source(
++      VIPS_SOURCE(source), out,
++      "access", VIPS_ACCESS_SEQUENTIAL,
++      NULL);
++#endif
+@@ -173,0 +230,14 @@
++  if (tiffload_unlimited)
++    return vips_tiffload_source(
++        VIPS_SOURCE(source), out,
++        "access", VIPS_ACCESS_SEQUENTIAL,
++        "page", lo.Page,
++        "n", lo.Pages,
++        "unlimited", lo.TiffUnlimited,
++        NULL);
++
++  // Without the option the loader keeps its own DoS limits, which is the
++  // conservative direction to fail in: some very large TIFFs that would load on
++  // a newer libvips are refused here. The alternative is what this replaced —
++  // passing a property the loader does not have, which fails *every* TIFF with
++  // "no property named `unlimited'".
+@@ -1379,0 +1450,379 @@
++
++// vips_linear_go applies out = in * a + b to the colour bands only, leaving any
++// alpha channel exactly as it was, and casts the result back to the input's band
++// format so the clipping happens once, at the end.
++//
++// This is the primitive behind `bright` and `contrast`. Both are single linear
++// transforms, so the caller folds them into one a/b pair rather than making two
++// passes over the pixels.
++int
++vips_linear_go(VipsImage *in, VipsImage **out, double a, double b)
++{
++  VipsImage *base = vips_image_new();
++  VipsImage **t = (VipsImage **) vips_object_local_array(VIPS_OBJECT(base), 6);
++
++  VipsBandFormat format = in->BandFmt;
++  VipsInterpretation interpretation = in->Type;
++
++  VipsImage *colour = in;
++  VipsImage *alpha = NULL;
++
++  if (vips_image_hasalpha(in)) {
++    // Scaling alpha along with the colours would make a brightened image
++    // translucent, which is not what either OSS action means.
++    if (
++        vips_extract_band(in, &t[0], 0, "n", in->Bands - 1, NULL) ||
++        vips_extract_band(in, &t[1], in->Bands - 1, "n", 1, NULL)) {
++      VIPS_UNREF(base);
++      return 1;
++    }
++
++    colour = t[0];
++    alpha = t[1];
++  }
++
++  if (vips_linear1(colour, &t[2], a, b, NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  VipsImage *res = t[2];
++
++  if (alpha != NULL) {
++    if (vips_bandjoin2(res, alpha, &t[3], NULL)) {
++      VIPS_UNREF(base);
++      return 1;
++    }
++
++    res = t[3];
++  }
++
++  // vips_linear works in float; casting back to the input format is what clips
++  // an over-bright pixel to white instead of wrapping it around.
++  if (vips_cast(res, &t[4], format, NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  int ret = vips_copy(t[4], out, "interpretation", interpretation, NULL);
++
++  VIPS_UNREF(base);
++
++  return ret;
++}
++
++// vips_round_corners_go builds a rounded-rectangle coverage mask the size of
++// `in` and uses it as the image's alpha channel. A radius of half the shorter
++// side turns the rectangle into an ellipse, which is how `circle` is built: crop
++// to a square first, then call this.
++//
++// The mask is arithmetic rather than a drawn or rasterised shape, so it needs
++// nothing from librsvg and works on any libvips build. It evaluates the signed
++// distance to the rounded rectangle,
++//
++//	d = |max(|p - centre| - inset, 0)| - radius
++//
++// and turns it into coverage with clamp(radius + 0.5 - d), which leaves a
++// one-pixel antialiased band along the arc instead of a staircase.
++int
++vips_round_corners_go(VipsImage *in, VipsImage **out, double radius)
++{
++  VipsImage *base = vips_image_new();
++  VipsImage **t = (VipsImage **) vips_object_local_array(VIPS_OBJECT(base), 20);
++
++  int w = in->Xsize;
++  int h = in->Ysize;
++
++  // Distances are measured between pixel centres, so the half-extent of a
++  // w-pixel row is (w - 1) / 2 and an even-sided image has its centre between
++  // two pixels.
++  double cx = (w - 1) / 2.0;
++  double cy = (h - 1) / 2.0;
++
++  // Where the straight part of each edge ends and the corner arc begins.
++  double bx = cx - radius;
++  double by = cy - radius;
++  if (bx < 0.0)
++    bx = 0.0;
++  if (by < 0.0)
++    by = 0.0;
++
++  double ones[2] = { 1.0, 1.0 };
++  double centre[2] = { -cx, -cy };
++  double inset[2] = { -bx, -by };
++
++  if (
++      vips_xyz(&t[0], w, h, NULL) ||
++      vips_linear(t[0], &t[1], ones, centre, 2, NULL) ||
++      vips_abs(t[1], &t[2], NULL) ||
++      // q = max(|p - centre| - inset, 0). libvips has no elementwise max with a
++      // constant, so multiply by the 0/1 mask of the comparison instead.
++      vips_linear(t[2], &t[3], ones, inset, 2, NULL) ||
++      vips_moreeq_const1(t[3], &t[4], 0.0, NULL) ||
++      vips_linear1(t[4], &t[5], 1.0 / 255.0, 0.0, NULL) ||
++      vips_multiply(t[3], t[5], &t[6], NULL) ||
++      // |q|, as the square root of the sum of the two squared bands. libvips
++      // has no sqrt in VipsOperationMath, so raise to 0.5 instead.
++      vips_multiply(t[6], t[6], &t[7], NULL) ||
++      vips_extract_band(t[7], &t[8], 0, "n", 1, NULL) ||
++      vips_extract_band(t[7], &t[9], 1, "n", 1, NULL) ||
++      vips_add(t[8], t[9], &t[10], NULL) ||
++      vips_pow_const1(t[10], &t[11], 0.5, NULL) ||
++      // coverage = clamp(radius + 0.5 - |q|) * 255; the cast does the clamping.
++      vips_linear1(t[11], &t[12], -255.0, (radius + 0.5) * 255.0, NULL) ||
++      vips_cast(t[12], &t[13], VIPS_FORMAT_UCHAR, NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  VipsImage *mask = t[13];
++  VipsImage *colour = in;
++
++  if (vips_image_hasalpha(in)) {
++    // Multiply into the existing alpha rather than replacing it, so a source
++    // that was already partly transparent stays that way inside the corners.
++    if (
++        vips_extract_band(in, &t[14], 0, "n", in->Bands - 1, NULL) ||
++        vips_extract_band(in, &t[15], in->Bands - 1, "n", 1, NULL) ||
++        vips_linear1(t[15], &t[16], 1.0 / 255.0, 0.0, NULL) ||
++        vips_multiply(t[16], mask, &t[17], NULL) ||
++        vips_cast(t[17], &t[18], VIPS_FORMAT_UCHAR, NULL)) {
++      VIPS_UNREF(base);
++      return 1;
++    }
++
++    colour = t[14];
++    mask = t[18];
++  }
++
++  int ret = vips_bandjoin2(colour, mask, out, NULL);
++
++  VIPS_UNREF(base);
++
++  return ret;
++}
++
++// vips_rotate_go rotates by an arbitrary angle, growing the canvas to hold the
++// result and leaving the exposed corners transparent.
++//
++// This is not vips_rot (which the Image.Rotate binding uses): that one is a
++// lossless transpose and only accepts multiples of 90. An arbitrary angle is a
++// resample, so it needs an interpolator and a background, and the output is the
++// bounding box of the rotated rectangle rather than the input size.
++//
++// Alpha is added first when the image has none, so the corners come out
++// transparent instead of black. A format that cannot carry alpha gets them
++// flattened to the background colour later in the pipeline, which is what OSS
++// does too — white corners on a JPEG, transparent ones on a PNG.
++int
++vips_rotate_go(VipsImage *in, VipsImage **out, double angle)
++{
++  VipsImage *base = vips_image_new();
++  VipsImage **t = (VipsImage **) vips_object_local_array(VIPS_OBJECT(base), 2);
++
++  VipsImage *img = in;
++
++  if (!vips_image_hasalpha(in)) {
++    if (vips_addalpha(in, &t[0], NULL)) {
++      VIPS_UNREF(base);
++      return 1;
++    }
++
++    img = t[0];
++  }
++
++  double bg[4] = { 0.0, 0.0, 0.0, 0.0 };
++  VipsArrayDouble *background = vips_array_double_new(bg, 4);
++
++  int ret = vips_rotate(img, out, angle, "background", background, NULL);
++
++  vips_area_unref(VIPS_AREA(background));
++  VIPS_UNREF(base);
++
++  return ret;
++}
++
++// vips_ensure_alpha_go adds an opaque alpha channel if the image has none.
++//
++// Needed before embedding an image into a larger transparent canvas: without an
++// alpha band, VIPS_EXTEND_BLACK fills the margin with opaque black instead of
++// nothing.
++int
++vips_ensure_alpha_go(VipsImage *in, VipsImage **out)
++{
++  if (vips_image_hasalpha(in))
++    return vips_copy(in, out, NULL);
++
++  return vips_addalpha(in, out, NULL);
++}
++
++// vips_text_go renders a line of text as a coloured RGBA image, optionally with
++// a drop shadow.
++//
++// libvips renders text through Pango, which returns a single-band coverage mask
++// rather than a picture: the colour is ours to supply. So the mask becomes the
++// alpha channel of a constant-colour image, which is also what makes an
++// arbitrary text colour free.
++//
++// The shadow is a blurred, offset copy of the same mask in black, composited
++// underneath. OSS's `shadow_` gives only its transparency; the offset and blur
++// are the caller's calibration, scaled from the font size.
++int
++vips_text_go(VipsImage **out, const char *text, const char *font, int dpi,
++    RGB color, double shadow_opacity, int shadow_offset, double shadow_sigma)
++{
++  VipsImage *base = vips_image_new();
++  VipsImage **t = (VipsImage **) vips_object_local_array(VIPS_OBJECT(base), 20);
++
++  if (vips_text(&t[0], text, "font", font, "dpi", dpi, "align", VIPS_ALIGN_LOW, NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  VipsImage *mask = t[0];
++
++  int w = mask->Xsize;
++  int h = mask->Ysize;
++
++  double ones[3] = { 0.0, 0.0, 0.0 };
++  double rgb[3] = { (double) color.r, (double) color.g, (double) color.b };
++
++  gboolean with_shadow = shadow_opacity > 0.0 && shadow_offset >= 0;
++
++  int cw = w + (with_shadow ? shadow_offset : 0);
++  int ch = h + (with_shadow ? shadow_offset : 0);
++
++  // Constant-colour plane the size of the finished image: black scaled by zero
++  // plus the colour as the offset.
++  if (
++      vips_black(&t[1], cw, ch, "bands", 3, NULL) ||
++      vips_linear(t[1], &t[2], ones, rgb, 3, NULL) ||
++      vips_cast(t[2], &t[3], VIPS_FORMAT_UCHAR, NULL) ||
++      vips_copy(t[3], &t[4], "interpretation", VIPS_INTERPRETATION_sRGB, NULL) ||
++      // The glyph coverage, placed at the top left of that plane.
++      vips_embed(mask, &t[5], 0, 0, cw, ch, "extend", VIPS_EXTEND_BLACK, NULL) ||
++      vips_bandjoin2(t[4], t[5], &t[16], NULL) ||
++      // Re-declare the interpretation: bandjoin turns a 3-band sRGB image into
++      // a 4-band one and settles on "multiband", which vips_composite2 then
++      // refuses to convert into a compositing space.
++      vips_copy(t[16], &t[6], "interpretation", VIPS_INTERPRETATION_sRGB, NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  if (!with_shadow) {
++    int ret = vips_copy(t[6], out, NULL);
++    VIPS_UNREF(base);
++    return ret;
++  }
++
++  double black[3] = { 0.0, 0.0, 0.0 };
++
++  if (
++      // Shadow coverage: the same mask, blurred, scaled by the requested
++      // opacity, and offset down and right.
++      vips_gaussblur(mask, &t[7], shadow_sigma, NULL) ||
++      // shadow_opacity is a 0..1 factor, so the blurred coverage keeps its
++      // shape and only loses weight.
++      vips_linear1(t[7], &t[8], shadow_opacity, 0.0, NULL) ||
++      vips_cast(t[8], &t[9], VIPS_FORMAT_UCHAR, NULL) ||
++      vips_embed(t[9], &t[10], shadow_offset, shadow_offset, cw, ch,
++          "extend", VIPS_EXTEND_BLACK, NULL) ||
++      vips_black(&t[11], cw, ch, "bands", 3, NULL) ||
++      vips_linear(t[11], &t[12], ones, black, 3, NULL) ||
++      vips_cast(t[12], &t[13], VIPS_FORMAT_UCHAR, NULL) ||
++      vips_bandjoin2(t[13], t[10], &t[17], NULL) ||
++      vips_copy(t[17], &t[14], "interpretation", VIPS_INTERPRETATION_sRGB, NULL) ||
++      // Text over shadow.
++      vips_composite2(t[14], t[6], &t[15], VIPS_BLEND_MODE_OVER,
++          "compositing_space", VIPS_INTERPRETATION_sRGB, NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  int ret = vips_copy(t[15], out, NULL);
++
++  VIPS_UNREF(base);
++
++  return ret;
++}
++
++// vips_average_hue_go returns the mean colour of the image, in sRGB.
++//
++// It uses vips_stats rather than three vips_avg calls, and the reason is not
++// speed: the JPEG and PNG loaders open their source with VIPS_ACCESS_SEQUENTIAL,
++// so the pixels can be walked exactly once. Averaging band by band means three
++// walks, which fails outright on those formats. vips_stats does the whole thing
++// in one pass and hands back a small table.
++//
++// The conversion to sRGB first matters: the answer is meant to describe the
++// colour a viewer sees, and a CMYK or 16-bit source averaged in its own space
++// would give a number in units nobody asked about.
++//
++// Transparency is weighted, not ignored. A logo on a transparent field is mostly
++// stored as transparent black, and a flat mean of those pixels answers "black"
++// for an image a person would call green. Premultiplying first and dividing by
++// the summed alpha gives the mean of what is actually visible. For an opaque
++// image the two are identical, so this only changes the answer where the flat
++// mean was wrong.
++int
++vips_average_hue_go(VipsImage *in, double *r, double *g, double *b)
++{
++  VipsImage *base = vips_image_new();
++  VipsImage **t = (VipsImage **) vips_object_local_array(VIPS_OBJECT(base), 4);
++
++  if (vips_colourspace(in, &t[0], VIPS_INTERPRETATION_sRGB, NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  VipsImage *img = t[0];
++  gboolean has_alpha = vips_image_hasalpha(img);
++
++  if (has_alpha && vips_premultiply(img, &t[1], NULL)) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++  if (has_alpha)
++    img = t[1];
++
++  if (vips_stats(img, &t[2], NULL) || vips_image_wio_input(t[2])) {
++    VIPS_UNREF(base);
++    return 1;
++  }
++
++  // The stats table is 6 columns wide and one row taller than the band count:
++  // row 0 summarises every band together, rows 1..n are the individual bands.
++  // Column 2 is the sum and column 4 the mean.
++  int bands = t[2]->Ysize - 1;
++  double out[3] = { 0.0, 0.0, 0.0 };
++
++  if (has_alpha) {
++    double alpha_sum = *((double *) VIPS_IMAGE_ADDR(t[2], 2, bands));
++
++    // Nothing visible at all: there is no colour to report.
++    if (alpha_sum > 0.0) {
++      for (int i = 0; i < 3; i++) {
++        int row = (i < bands - 1 ? i : bands - 2) + 1;
++        double premul_sum = *((double *) VIPS_IMAGE_ADDR(t[2], 2, row));
++
++        // premultiply scales by alpha/255, so undoing it needs the same factor.
++        out[i] = premul_sum * 255.0 / alpha_sum;
++      }
++    }
++  }
++  else {
++    for (int i = 0; i < 3; i++) {
++      int row = (i < bands ? i : bands - 1) + 1;
++      out[i] = *((double *) VIPS_IMAGE_ADDR(t[2], 4, row));
++    }
++  }
++
++  *r = out[0];
++  *g = out[1];
++  *b = out[2];
++
++  VIPS_UNREF(base);
++
++  return 0;
++}
+--- upstream/vips/vips.go
++++ internal/vips/vips.go
+@@ -25 +24,0 @@
+-	"github.com/imgproxy/imgproxy/v4/options"
+@@ -91,0 +91,8 @@
++	// Probe every saver now, on this goroutine, while the process is still
++	// single-threaded and nobody is waiting on a response. SupportsSave caches,
++	// so this is the only time any encoding happens for the question.
++	for _, t := range saveableTypes {
++		SupportsSave(t)
++	}
++	Cleanup()
++
+@@ -138,0 +146,5 @@
++// MetaEXIF is libvips's key for the raw EXIF block (VIPS_META_EXIF_NAME). Every
++// loader that finds EXIF attaches it under this name, whatever the container
++// wrapped it in, and the bytes are a bare TIFF block.
++const MetaEXIF = "exif-data"
++
+@@ -140,0 +153,17 @@
++}
++
++// operationHasArgument reports whether a loader or saver takes an argument of
++// this name in the libvips this binary is linked against.
++//
++// Version numbers cannot answer that question. tiffload's `unlimited` arrived in
++// 8.17 but only when libvips was built against libtiff 4.7 or newer, so an 8.17
++// without it is a real build, not a hypothetical one — and passing an argument a
++// loader does not have fails the load outright rather than being ignored.
++func operationHasArgument(nickname, name string) bool {
++	return C.vips_operation_has_argument(cachedCString(nickname), cachedCString(name)) != 0
++}
++
++// tiffSupportsUnlimited reports what Init established about this build's
++// tiffload_source. The loader itself consults the same answer on the C side.
++func tiffSupportsUnlimited() bool {
++	return C.vips_tiffload_supports_unlimited() != 0
+@@ -177,0 +207,15 @@
++// SupportsSave reports whether this build can actually produce it.
++//
++// Not whether the saver operation was compiled in — that is a weaker question,
++// and for HEIC and AVIF it is the wrong one. libvips has a single heifsave; it
++// hands the pixels to libheif, which dispatches to a codec plugin chosen by the
++// `compression` setting. A build with libheif and no AV1 encoder — Debian and
++// Ubuntu's default, where aomenc ships as a separate package — has
++// heifsave_target and then fails every AVIF at run time with "heifsave:
++// Unsupported compression". Answered from the operation table, that build says
++// yes, the request gets past validation, and the failure surfaces as a 500 from
++// deep inside the pipeline with no usable message.
++//
++// So the answer comes from encoding an image: 32x32, once per format, cached.
++// Init warms the whole set, so no request pays for it. It is the only version of
++// this question that cannot lie.
+@@ -183,2 +227,10 @@
+-	sup := false
+-
++	sup := hasSaveOperation(it) && probeSave(it)
++
++	typeSupportSave.Store(it, sup)
++
++	return sup
++}
++
++// hasSaveOperation reports whether the saver was compiled in at all. Cheap, and
++// it spares probeSave from formats that have no chance.
++func hasSaveOperation(it imagetype.Type) bool {
+@@ -187 +239 @@
+-		sup = hasOperation("jpegsave_target")
++		return hasOperation("jpegsave_target")
+@@ -189 +241 @@
+-		sup = hasOperation("jxlsave_target")
++		return hasOperation("jxlsave_target")
+@@ -191 +243 @@
+-		sup = hasOperation("pngsave_target")
++		return hasOperation("pngsave_target")
+@@ -193 +245 @@
+-		sup = hasOperation("webpsave_target")
++		return hasOperation("webpsave_target")
+@@ -195 +247 @@
+-		sup = hasOperation("gifsave_target")
++		return hasOperation("gifsave_target")
+@@ -197 +249 @@
+-		sup = hasOperation("heifsave_target")
++		return hasOperation("heifsave_target")
+@@ -199 +251 @@
+-		sup = hasOperation("bmpsave_target")
++		return hasOperation("bmpsave_target")
+@@ -201 +253 @@
+-		sup = hasOperation("tiffsave_target")
++		return hasOperation("tiffsave_target")
+@@ -203,6 +255,62 @@
+-		sup = hasOperation("icosave_target")
+-	}
+-
+-	typeSupportSave.Store(it, sup)
+-
+-	return sup
++		return hasOperation("icosave_target")
++	}
++	return false
++}
++
++// saveableTypes is every type Image.Save has a branch for. Init probes each one.
++var saveableTypes = []imagetype.Type{
++	imagetype.JPEG, imagetype.PNG, imagetype.WEBP, imagetype.GIF,
++	imagetype.AVIF, imagetype.HEIC, imagetype.JXL,
++	imagetype.TIFF, imagetype.BMP, imagetype.ICO,
++}
++
++// probeSave encodes a small image and reports whether it came out.
++//
++// The size is not arbitrary. 1x1 is refused or special-cased by several
++// encoders; 32x32 is past every minimum block size in use and still encodes in
++// microseconds, AVIF included.
++//
++// A failure here is the answer, not an error to propagate: the caller asked
++// whether the format works, and "no" is a valid reply. Image.Save has already
++// drained the libvips error buffer on its way out, so nothing is left behind for
++// the next real operation to trip over.
++func probeSave(it imagetype.Type) bool {
++	img, err := newProbeImage()
++	if err != nil {
++		return false
++	}
++	defer img.Clear()
++
++	d, err := img.Save(it, 75, SaveOverrides{})
++	if err != nil {
++		return false
++	}
++	d.Close()
++
++	return true
++}
++
++// newProbeImage is a 32x32 sRGB image, the subject of probeSave.
++func newProbeImage() (*Image, error) {
++	var tmp *C.VipsImage
++
++	if C.vips_black_go(&tmp, 32, 32, 3) != 0 {
++		return nil, Error()
++	}
++
++	return &Image{VipsImage: tmp}, nil
++}
++
++// SaveableTypes returns the formats this build can really encode, in the order
++// of saveableTypes. Init has already probed them, so this is a map read.
++//
++// It exists so the process can say at startup which formats it can serve, rather
++// than letting an operator find out from a 400 in production.
++func SaveableTypes() []imagetype.Type {
++	out := make([]imagetype.Type, 0, len(saveableTypes))
++	for _, t := range saveableTypes {
++		if SupportsSave(t) {
++			out = append(out, t)
++		}
++	}
++	return out
+@@ -339 +447 @@
+-	o *options.Options,
++	ov SaveOverrides,
+@@ -347 +455 @@
+-	so := newSaveOptions(o)
++	so := newSaveOptions(ov)
+@@ -612,0 +721,100 @@
++// AverageHue returns the mean colour of the image, in sRGB.
++//
++// It answers OSS's `image/average-hue`. Transparency is weighted rather than
++// ignored, so a logo on a transparent field reports the logo's colour instead of
++// the black stored behind it.
++func (img *Image) AverageHue() (color.RGB, error) {
++	var r, g, b C.double
++
++	if C.vips_average_hue_go(img.VipsImage, &r, &g, &b) != 0 {
++		return color.RGB{}, Error()
++	}
++
++	return color.RGB{R: clampByte(float64(r)), G: clampByte(float64(g)), B: clampByte(float64(b))}, nil
++}
++
++// clampByte rounds a channel mean into the 0..255 range. libvips means are
++// already inside it for uchar input, but a float or HDR source can land outside.
++func clampByte(v float64) uint8 {
++	switch {
++	case v <= 0:
++		return 0
++	case v >= 255:
++		return 255
++	}
++	return uint8(math.Round(v))
++}
++
++// EnsureAlpha adds an opaque alpha channel if the image has none, so that
++// embedding it into a larger canvas leaves the margin transparent.
++func (img *Image) EnsureAlpha() error {
++	var tmp *C.VipsImage
++
++	if C.vips_ensure_alpha_go(img.VipsImage, &tmp) != 0 {
++		return Error()
++	}
++
++	img.swapAndUnref(tmp)
++
++	return nil
++}
++
++// TextOptions describes one rendered line of text.
++type TextOptions struct {
++	Text string
++	// Font is a Pango font description, e.g. "sans 40" or "Noto Sans CJK SC 40".
++	// The size in it is in points, and callers that want pixels should render at
++	// 72 dpi, where the two coincide.
++	Font  string
++	DPI   int
++	Color color.RGB
++
++	// ShadowOpacity is 0 for no shadow, otherwise a 0..1 factor applied to the
++	// blurred coverage. Offset and Sigma are in pixels.
++	ShadowOpacity float64
++	ShadowOffset  int
++	ShadowSigma   float64
++}
++
++// NewText renders text into a new RGBA image.
++//
++// libvips renders through Pango, which produces a coverage mask rather than a
++// picture; the colour is supplied here and the mask becomes the alpha channel.
++// Which font names resolve is a property of the machine's fontconfig, not of
++// this package.
++func NewText(o TextOptions) (*Image, error) {
++	cText := C.CString(o.Text)
++	defer C.free(unsafe.Pointer(cText))
++
++	cFont := C.CString(o.Font)
++	defer C.free(unsafe.Pointer(cFont))
++
++	var tmp *C.VipsImage
++
++	if C.vips_text_go(
++		&tmp, cText, cFont, C.int(o.DPI), cRGB(o.Color),
++		C.double(o.ShadowOpacity), C.int(o.ShadowOffset), C.double(o.ShadowSigma),
++	) != 0 {
++		return nil, Error()
++	}
++
++	return &Image{VipsImage: tmp}, nil
++}
++
++// RotateAny rotates by an arbitrary angle in degrees, clockwise.
++//
++// Unlike Rotate, which is a lossless transpose limited to multiples of 90, this
++// resamples: the canvas grows to the bounding box of the rotated rectangle and
++// the corners it exposes are transparent.
++func (img *Image) RotateAny(degrees float64) error {
++	var tmp *C.VipsImage
++
++	if C.vips_rotate_go(img.VipsImage, &tmp, C.double(degrees)) != 0 {
++		return Error()
++	}
++
++	img.swapAndUnref(tmp)
++
++	return nil
++}
++
+@@ -718,0 +927,33 @@
++// Linear applies out = in*a + b to the colour bands, leaving alpha untouched.
++//
++// It is the primitive behind brightness and contrast: both are linear, so a
++// caller wanting both folds them into a single a/b pair.
++func (img *Image) Linear(a, b float64) error {
++	var tmp *C.VipsImage
++
++	if C.vips_linear_go(img.VipsImage, &tmp, C.double(a), C.double(b)) != 0 {
++		return Error()
++	}
++
++	img.swapAndUnref(tmp)
++
++	return nil
++}
++
++// RoundCorners multiplies the image's alpha by a rounded-rectangle mask of the
++// given corner radius, in pixels.
++//
++// A radius of half the shorter side yields an ellipse — which is how a circular
++// crop is made: square the image first, then call this.
++func (img *Image) RoundCorners(radius float64) error {
++	var tmp *C.VipsImage
++
++	if C.vips_round_corners_go(img.VipsImage, &tmp, C.double(radius)) != 0 {
++		return Error()
++	}
++
++	img.swapAndUnref(tmp)
++
++	return nil
++}
++
+--- upstream/vips/vips.h
++++ internal/vips/vips.h
+@@ -27,0 +28,9 @@
++
++// Reports whether an operation takes an argument of this name. Asks the
++// operation class, so it is true of the library actually linked rather than of
++// the version number it reports.
++gboolean vips_operation_has_argument(const char *nickname, const char *name);
++
++// Reports whether this build's tiffload_source registers the `unlimited`
++// property. Answered once at startup; see vips.c.
++gboolean vips_tiffload_supports_unlimited();
+@@ -81,0 +91,8 @@
++int vips_linear_go(VipsImage *in, VipsImage **out, double a, double b);
++int vips_round_corners_go(VipsImage *in, VipsImage **out, double radius);
++int vips_rotate_go(VipsImage *in, VipsImage **out, double angle);
++int vips_ensure_alpha_go(VipsImage *in, VipsImage **out);
++int vips_average_hue_go(VipsImage *in, double *r, double *g, double *b);
++int vips_text_go(VipsImage **out, const char *text, const char *font, int dpi, RGB color,
++    double shadow_opacity, int shadow_offset, double shadow_sigma);
++
+--- upstream/vips/webp_preset.go
++++ internal/vips/webp_preset.go
+@@ -11,2 +10,0 @@
+-
+-	"github.com/imgproxy/imgproxy/v4/env"
+@@ -44 +42,6 @@
+-	return env.EnumName(WebpPresets, wp, "unknown")
++	for name, v := range WebpPresets {
++		if v == wp {
++			return name
++		}
++	}
++	return "unknown"
