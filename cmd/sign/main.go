@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/vndroid/iXoSS/internal/httpserver"
 	"github.com/vndroid/iXoSS/internal/security"
@@ -38,9 +39,30 @@ func main() {
 		die(err)
 	}
 
-	u, err := url.Parse(os.Args[1])
+	message, err := signedMessage(os.Args[1])
 	if err != nil {
 		die(err)
+	}
+	sig, err := checker.Sign(message)
+	if err != nil {
+		die(err)
+	}
+
+	fmt.Println(sig)
+}
+
+func signedMessage(target string) (string, error) {
+	parse := url.Parse
+	if strings.HasPrefix(target, "//") {
+		// An HTTP request target starting with // is still a path. Parse would
+		// treat its first segment as a host and sign a different object path.
+		// Fragments are not sent in HTTP requests, as with Parse below.
+		target, _, _ = strings.Cut(target, "#")
+		parse = url.ParseRequestURI
+	}
+	u, err := parse(target)
+	if err != nil {
+		return "", err
 	}
 
 	path := u.Path
@@ -51,12 +73,7 @@ func main() {
 	// Re-read the chain through the query parser rather than trusting the raw
 	// string: it is what the server will do with the URL it receives, so any
 	// percent-decoding has to happen on both sides or the MACs will not match.
-	sig, err := checker.Sign(httpserver.SignedMessage(path, u.Query().Get("x-oss-process")))
-	if err != nil {
-		die(err)
-	}
-
-	fmt.Println(sig)
+	return httpserver.SignedMessage(path, u.Query().Get("x-oss-process")), nil
 }
 
 func die(err error) {
