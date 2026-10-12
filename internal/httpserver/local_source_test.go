@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"bytes"
+	"context"
 	"image"
 	_ "image/png"
 	"io"
@@ -17,6 +18,66 @@ import (
 	"github.com/vndroid/iXoSS/internal/security"
 	"github.com/vndroid/iXoSS/internal/source"
 )
+
+type recordingPathSource struct {
+	source.Source
+	path string
+}
+
+func (s *recordingPathSource) Open(ctx context.Context, path string) (*source.Object, error) {
+	s.path = path
+	return s.Source.Open(ctx, path)
+}
+
+func TestNormalizeRequestPathAfterSigning(t *testing.T) {
+	s := newLimitedServer(t, t.TempDir(), 1024)
+	v := &recordingVerifier{enabled: true}
+	s.verifier = v
+	src := &recordingPathSource{Source: s.src}
+	s.src = src
+	for _, tc := range []struct{ target, raw, normalized string }{
+		{"//", "//", "/"},
+		{"////", "////", "/"},
+		{"//sub///photo.jpg", "//sub///photo.jpg", "/sub/photo.jpg"},
+		{"/sub%2F%2Fphoto.jpg", "/sub//photo.jpg", "/sub/photo.jpg"},
+		{"/sub//./../photo.jpg", "/sub//./../photo.jpg", "/sub/./../photo.jpg"},
+		{"/missing///", "/missing///", "/missing/"},
+	} {
+		r := httptest.NewRequest(http.MethodGet, tc.target+"?v=1&x-ixoss-signature=abc", nil)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("%s: status %d, body %s", tc.target, w.Code, w.Body)
+		}
+		if src.path != tc.normalized {
+			t.Errorf("source path = %q, want %q", src.path, tc.normalized)
+		}
+		if v.gotMessage != tc.raw || v.gotSignature != "abc" {
+			t.Errorf("signature checked against %q with %q", v.gotMessage, v.gotSignature)
+		}
+		if r.URL.Path != tc.raw || r.URL.Query().Get("v") != "1" {
+			t.Error("original request was modified")
+		}
+	}
+}
+
+func TestNormalizedHealthPath(t *testing.T) {
+	s := newLimitedServer(t, t.TempDir(), 1024)
+	v := &recordingVerifier{enabled: true}
+	s.verifier = v
+	for _, path := range []string{"/healthz", "//healthz", "////healthz", "/%2Fhealthz"} {
+		for _, method := range []string{http.MethodGet, http.MethodHead} {
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, httptest.NewRequest(method, path, nil))
+			if w.Code != http.StatusOK {
+				t.Errorf("%s %s: status %d", method, path, w.Code)
+			}
+		}
+	}
+	if v.calls != 0 {
+		t.Error("normalized health path must remain exempt from signatures")
+	}
+}
 
 func TestRepeatedSlashesOverHTTP(t *testing.T) {
 	root := t.TempDir()

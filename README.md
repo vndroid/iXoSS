@@ -39,6 +39,11 @@ GET /photo.jpg?x-oss-process=image/info           JSON metadata
 GET /healthz
 ```
 
+Repeated slashes in request paths are collapsed before routing: `//` becomes
+`/`, and `//sub//photo.jpg` is served as `/sub/photo.jpg`. Query parameters are
+preserved. Signatures still cover the original requested path before this
+normalization.
+
 ### Supported actions
 
 **`resize`** — `m_` mode, `w_`/`h_` box, `l_` longest side, `s_` shortest side,

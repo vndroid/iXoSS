@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/vndroid/iXoSS/internal/auximageprovider"
@@ -248,7 +249,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// /healthz is exempt: it reports whether libvips is alive and reveals nothing
 	// about the objects being served, and a load balancer has no key.
-	if r.URL.Path == "/healthz" {
+	normalizedPath := collapseSlashes(r.URL.Path)
+	if normalizedPath == "/healthz" {
 		s.health(w)
 		return
 	}
@@ -256,6 +258,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := s.verifySignature(r); err != nil {
 		s.failSignature(w, r, err)
 		return
+	}
+	if normalizedPath != r.URL.Path {
+		// Verify the original public path before normalizing it for routing and
+		// source access. Clone so middleware still sees the original request.
+		r = r.Clone(r.Context())
+		r.URL.Path = normalizedPath
+		r.URL.RawPath = ""
 	}
 
 	raw := r.URL.Query().Get(ossprocess.QueryKey)
@@ -293,6 +302,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.serveProcessed(w, r, chain, effective)
 	}
+}
+
+// collapseSlashes preserves all path segments, including dots and a trailing
+// slash, while reducing each run of slashes to a single separator.
+func collapseSlashes(path string) string {
+	for strings.Contains(path, "//") {
+		path = strings.ReplaceAll(path, "//", "/")
+	}
+	return path
 }
 
 // ----------------------------------------------------------------- signature
