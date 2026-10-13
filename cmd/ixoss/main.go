@@ -11,6 +11,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -31,6 +33,15 @@ import (
 )
 
 func main() {
+	var showVersion bool
+	flag.BoolVar(&showVersion, "version", false, "show version and exit")
+	flag.BoolVar(&showVersion, "v", false, "show version and exit")
+	flag.Parse()
+	if showVersion {
+		fmt.Print(versionInfo(colorEnabled(os.Stdout)))
+		return
+	}
+
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: logLevel(),
 	})))

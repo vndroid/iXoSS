@@ -16,7 +16,13 @@ RUN go mod vendor \
     && cp /usr/local/go/PATENTS /out/licenses/PATENTS-Go \
     && tar -czf /out/source.tar.gz cmd internal vendor tools third_party \
         go.mod go.sum LICENSE LICENSE-imgproxy NOTICE README.md DIFF.md Dockerfile compose.example.yaml
-RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/ixoss ./cmd/ixoss
+ARG CHANNEL=DEVELOPMENT
+ARG BUILD_DATE=""
+ARG REVISION=unknown
+RUN build_date="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" \
+    && CGO_ENABLED=1 go build -trimpath \
+        -ldflags="-s -w -X main.Channel=${CHANNEL} -X main.BuildDate=${build_date} -X main.Revision=${REVISION}" \
+        -o /out/ixoss ./cmd/ixoss
 
 # Export matching source as a release asset, separate from the runtime image.
 FROM scratch AS source-export

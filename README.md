@@ -9,6 +9,9 @@ for why those two go together.
 iXoSS is an independent project and is not affiliated with Alibaba Cloud. "OSS"
 refers only to the `x-oss-process` URL grammar it implements.
 
+Version: **0.1.0 (DEVELOPMENT)**. The project is in initial development;
+interfaces may change before 1.0.0.
+
 Status: **working.** `resize`, `crop`, `indexcrop`, `trim`, `rotate`,
 `auto-orient`, `blur`, `sharpen`, `pixelate`, `bright`, `contrast`, `circle`,
 `rounded-corners`, `watermark`, `quality`, `format`, `interlace`, `info` and
@@ -22,6 +25,16 @@ what is missing, what is added, which numbers are approximations rather than
 matches, and where the limits sit.
 
 ## Usage
+
+Run `ixoss --version` or `ixoss -v` to print the version, build channel, UTC
+build time, Git revision, platform and Go runtime, then exit without requiring
+`IXOSS_ROOT` or starting the image engine. Terminal output highlights labels
+in cyan (`#22d3ee`); redirected output, `NO_COLOR=1` and `TERM=dumb` use plain text.
+Build metadata defaults to DEVELOPMENT/unknown for direct Go builds. Docker
+records the UTC build time and accepts `CHANNEL`, `BUILD_DATE` and `REVISION`
+build arguments; pass `--build-arg REVISION="$(git rev-parse HEAD)"` when building
+from a clean checkout. Direct Go builds also use embedded VCS metadata when
+available. The project version is maintained in `cmd/ixoss/version.go`.
 
 ```sh
 IXOSS_ROOT=/srv/images \
