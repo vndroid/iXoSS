@@ -728,7 +728,7 @@ which platform they cover — but if it does not build or does not behave on
 macOS or a BSD, that is not a bug against iXoSS. The macOS notes further
 down are for working on the code, not for running it.
 
-- Go 1.26+
+- Go 1.27+
 - libvips 8.13+ with, at minimum: libjpeg, libpng, libwebp (8.16+ only if you
   need to *read* animated JPEG XL — see "Not built yet")
 - TIFF loads on any of those. On libvips 8.17 built against libtiff 4.7+ the
@@ -750,10 +750,10 @@ apk add --no-cache \
   font-wqy-zenhei font-noto-cjk
 ```
 
-Alpine's own `go` package is 1.25.10 — older than the 1.26 this module requires,
-and without the standard-library security fixes of later patch releases. CI and
-the image below build with the official `golang:1.26-alpine3.23` image instead,
-whose tag floats to the newest 1.26.x; outside Docker, install Go from go.dev
+Alpine's packaged Go can lag behind this module's Go 1.27 requirement and newer
+standard-library security fixes. CI and the image below build with the official
+`golang:1.27-alpine3.23` image instead,
+whose tag floats to the newest 1.27.x; outside Docker, install Go from go.dev
 rather than from apk.
 
 Runtime only, without the toolchain:
@@ -791,7 +791,7 @@ preferring because it is the face OSS names by default, so `type_` resolves to
 the same font iXoSS's mapping expects; `font-noto-cjk` is a large package and
 can be dropped if the text will never be Chinese.
 
-Build the repository's [Dockerfile](Dockerfile), which uses Go 1.26 on Alpine
+Build the repository's [Dockerfile](Dockerfile), which uses Go 1.27 on Alpine
 3.23 for compilation and Alpine 3.23 for the runtime:
 
 ```sh
@@ -1149,7 +1149,7 @@ at a size no encoder treats specially. The pixel-level checks above are still no
 in there: they need real images, and they were run by hand.
 
 CI (`.github/workflows/ci.yml`) builds and runs those tests on Alpine 3.23
-(`golang:1.26-alpine3.23`) with `vips-heif` and `vips-jxl` installed, runs
+(`golang:1.27-alpine3.23`) with `vips-heif` and `vips-jxl` installed, runs
 `staticcheck` against the same libvips headers, and adds a `gofmt` and
 `go mod tidy` check.
 `.github/workflows/govulncheck.yml` checks for reachable known vulnerabilities

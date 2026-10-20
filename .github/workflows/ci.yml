@@ -9,8 +9,8 @@
 # checkout action's glibc Node under musl, which is a problem worth not having:
 # this way the checkout happens on the runner and only the build sees Alpine.
 #
-# Go comes from the official golang:1.26-alpine3.23 image rather than from apk.
-# The tag names no patch release, so every run gets the newest 1.26.x and its
+# Go comes from the official golang:1.27-alpine3.23 image rather than from apk.
+# The tag names no patch release, so every run gets the newest 1.27.x and its
 # security fixes; apk only moves Go when Alpine rebuilds the package (Alpine 3.23
 # still ships 1.25). libvips and the C toolchain still come from Alpine 3.23.
 name: CI
@@ -40,8 +40,8 @@ jobs:
           path: |
             .ci-cache/go-mod
             .ci-cache/go-build
-          key: golang126-alpine323-${{ hashFiles('go.sum') }}
-          restore-keys: golang126-alpine323-
+          key: golang127-alpine323-${{ hashFiles('go.sum') }}
+          restore-keys: golang127-alpine323-
 
       - name: Build, vet, staticcheck and test
         run: |
@@ -53,18 +53,18 @@ jobs:
             -e GOMODCACHE=/gomod \
             -e GOCACHE=/gocache \
             -e CGO_ENABLED=1 \
-            golang:1.26-alpine3.23 \
+            golang:1.27-alpine3.23 \
             sh -eu -c '
               apk add --no-cache build-base pkgconf vips-dev vips-heif vips-jxl
               go version
               pkg-config --modversion vips
               go build ./...
               go vet ./...
-              # staticcheck v0.8.1 requires Go 1.26.0, which the image provides.
+              # staticcheck v0.8.2 supports Go 1.27 export data.
               # The image pins GOTOOLCHAIN=local, so a later bump of the tool
               # past the image Go fails here loudly instead of fetching a
               # toolchain the check would then not run on.
-              GOBIN=/tmp/bin go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
+              GOBIN=/tmp/bin go install honnef.co/go/tools/cmd/staticcheck@v0.8.2
               /tmp/bin/staticcheck ./...
               go test ./internal/...
             '
@@ -87,7 +87,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version: '1.27'
           cache: false
 
       - name: imgproxy source lock

@@ -635,7 +635,7 @@ internal/timeout/        iXoSS 从 imgproxy 的 server 包中需要的唯一函�
 不能构建或不能正常工作，那不是 iXoSS 的 bug。
 下面的 macOS 说明是用于开发代码，而不是运行它。
 
-- Go 1.26+
+- Go 1.27+
 - libvips 8.13+，至少需要：libjpeg、libpng、libwebp（8.16+ 仅在需要*读取*
   动画 JPEG XL 时需要——参见"尚未构建"）
 - TIFF 在上述任一版本上加载。在 libvips 8.17 配合 libtiff 4.7+ 构建时，
@@ -656,9 +656,9 @@ apk add --no-cache \
   font-wqy-zenhei font-noto-cjk
 ```
 
-Alpine 自带的 `go` 包是 1.25.10——比本模块要求的 1.26 旧，
-且没有后续补丁版本的标准库安全修复。CI 和下面的镜像使用官方的
-`golang:1.26-alpine3.23` 镜像构建，其标签浮动到最新的 1.26.x；
+Alpine 自带的 Go 可能落后于本模块要求的 Go 1.27 以及后续的标准库安全修复。
+CI 和下面的镜像使用官方的
+`golang:1.27-alpine3.23` 镜像构建，其标签浮动到最新的 1.27.x；
 在 Docker 之外，从 go.dev 安装 Go 而不是从 apk。
 
 仅运行时，不含工具链：
@@ -692,7 +692,7 @@ level=INFO msg="encodable formats" formats="[jpg png webp gif avif jxl tiff bmp 
 因为它是 OSS 默认命名的字体，因此 `type_` 解析为 iXoSS 映射期望的同一字体；
 `font-noto-cjk` 是一个大包，如果文字不会是中文则可以省略。
 
-构建仓库的 [Dockerfile](Dockerfile)，使用 Go 1.26 在 Alpine 3.23 上编译，
+构建仓库的 [Dockerfile](Dockerfile)，使用 Go 1.27 在 Alpine 3.23 上编译，
 Alpine 3.23 作为运行时：
 
 ```sh
@@ -1025,7 +1025,7 @@ bright,20/contrast,20 [ 0,  83, 179, 255, 255]
 以及编码器探针是否同意在没有任何编码器特殊对待的大小上的真实编码。
 上面的像素级检查仍然不在其中：它们需要真实图像，而且是手动运行的。
 
-CI（`.github/workflows/ci.yml`）在 Alpine 3.23（`golang:1.26-alpine3.23`）上
+CI（`.github/workflows/ci.yml`）在 Alpine 3.23（`golang:1.27-alpine3.23`）上
 构建并运行这些测试，安装 `vips-heif` 和 `vips-jxl`，
 针对相同的 libvips 头运行 `staticcheck`，并添加 `gofmt` 和 `go mod tidy` 检查。
 `.github/workflows/govulncheck.yml` 在每次更改和每周检查可达的已知漏洞，

@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine3.23 AS build
+FROM golang:1.27-alpine3.23 AS build
 
 RUN apk add --no-cache build-base pkgconf vips-dev vips-heif vips-jxl
 WORKDIR /src
