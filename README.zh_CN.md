@@ -548,6 +548,9 @@ OpenTelemetry、Datadog、New Relic、Sentry、Airbrake、Bugsnag、Prometheus �
 维护的移植版本锁定在 **v4.0.17 审计/安全基线**
 （`2c89e4ebff3384caf6752db2ec861b4ef5fe675c`），包含 iXoSS 修改和
 精选的 master 更改。原始导入未记录其确切版本。
+后续安全评审已覆盖至 **v4.0.19**，回移植了 v4.0.18 的 BMP RLE8
+填充边界修复，并要求 Docker 使用 Alpine 修复版 CA 信任包；原始基线不变，
+适用性与验证详见[评审记录](third_party/imgproxy/README.md#2026-10-22-reviewed-through-v4019)。
 参见[上游审计](third_party/imgproxy/README.md)和
 [版本锁定](third_party/imgproxy/UPSTREAM.json)了解来源、文件哈希和回溯的安全修复。
 此标记与 iXoSS 的版本分开。

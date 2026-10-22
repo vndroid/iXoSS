@@ -633,6 +633,11 @@ XMP metadata.
 The maintained port is pinned to the **v4.0.17 audit/security baseline**
 (`2c89e4ebff3384caf6752db2ec861b4ef5fe675c`), with iXoSS modifications and
 selected master changes. The original import did not record its exact revision.
+Security review now covers all commits through **v4.0.19**: the v4.0.18 BMP
+RLE8 padding fix is backported and Docker requires Alpine's fixed CA bundle.
+The original baseline remains unchanged; see the
+[review record](third_party/imgproxy/README.md#2026-10-22-reviewed-through-v4019)
+for adopted changes and fixes that do not apply to this port.
 See [the upstream audit](third_party/imgproxy/README.md) and
 [version lock](third_party/imgproxy/UPSTREAM.json) for provenance, file hashes
 and backported security fixes. This marker is separate from iXoSS's version.

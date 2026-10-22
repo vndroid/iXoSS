@@ -27,6 +27,11 @@
       "commit": "39fd9e844a8a46084161502e993d5a3c16ccf28d",
       "release": "v4.0.17",
       "scope": "Validate the BMP payload length without counting the prepended file header."
+    },
+    {
+      "commit": "9d8bf3e54b8665a98c5934df15e7d0a31c5934e2",
+      "release": "v4.0.18",
+      "scope": "Reserve 256 bytes for the longest RLE8 absolute run including its alignment padding."
     }
   ],
   "normalization": "Remove only the exact iXoSS modification-notice prefix and rewrite the Go import prefix; preserve all original notices, other comments, whitespace and logic. Raw local hashes include the added notice.",
@@ -689,11 +694,11 @@
   ],
   "review_progress": {
     "latest_interval": {
-      "version": "v4.0.17",
-      "commit": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c"
+      "version": "v4.0.19",
+      "commit": "19b29fe921c5e02c26ae30536711e477d53d5c6d"
     },
     "complete": true,
-    "scope": "All commits in v4.0.15..v4.0.17 assessed for applicability to this port; not a comprehensive audit of older history, current master or native dependencies."
+    "scope": "All 18 commits in v4.0.17..v4.0.19 reviewed, including removed components and Docker/dependency changes. Native library version updates were inspected, but this is not a comprehensive native-package vulnerability audit."
   },
   "retained_notices": [
     {

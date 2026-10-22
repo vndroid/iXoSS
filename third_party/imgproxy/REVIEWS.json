@@ -173,6 +173,297 @@
           "evidence": []
         }
       ]
+    },
+    {
+      "from": {
+        "version": "v4.0.17",
+        "commit": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c"
+      },
+      "to": {
+        "version": "v4.0.19",
+        "commit": "19b29fe921c5e02c26ae30536711e477d53d5c6d"
+      },
+      "date": "2026-10-22",
+      "scope": "All 18 commits in v4.0.17..v4.0.19 reviewed, including removed components and Docker/dependency changes. Native library version updates were inspected, but this is not a comprehensive native-package vulnerability audit.",
+      "complete": true,
+      "commits": [
+        {
+          "commit": "29bd1cd6bec95ced5957d7fde0fb136be7015509",
+          "subject": "ci: run tests under ASAN and fix use-after-free in DCT hash helper",
+          "upstream_paths": [
+            ".github/workflows/ci.yml",
+            "testutil/dct2.c"
+          ],
+          "local_paths": [
+            ".github/workflows/ci.yml"
+          ],
+          "status": "ported",
+          "reason": "Adapt the ASAN CI idea to the native ICO/BMP security regressions. Upstream testutil/dct2.c is not present, so its test-only use-after-free fix has no local target. Leak detection remains disabled for unrelated fontconfig allocations.",
+          "dependencies": [],
+          "evidence": [
+            "Go 1.27.3 full build/vet/Staticcheck, ordinary and race tests, Clang ASAN ICO/BMP tests and govulncheck passed.",
+            "Unpatched bmpload.c reproduced an ASAN report: WRITE of size 256, 0 bytes after a 255-byte region (reported as unknown-crash on this toolchain); patched cases passed."
+          ],
+          "local_commit": "ca1ac3df44df00ea1e7764c50f9730b99c6f4a5a"
+        },
+        {
+          "commit": "9d8bf3e54b8665a98c5934df15e7d0a31c5934e2",
+          "subject": "fix: one-byte row buffer overflow on 255-pixel RLE8 absolute runs",
+          "upstream_paths": [
+            "testdata/bmp-rle8-overlong-run.bmp",
+            "vips/bmpload.c",
+            "vips/bmpload_test.go"
+          ],
+          "local_paths": [
+            "internal/vips/bmpload.c",
+            "internal/vips/bmpload_test.go"
+          ],
+          "status": "ported",
+          "reason": "Raise the row-buffer minimum from 255 to 256 to include alignment padding for a 255-byte RLE8 absolute run. Preserve the local loader and exercise forced decoding, pixel output, odd/even and truncated input.",
+          "dependencies": [],
+          "evidence": [
+            "Go 1.27.3 full build/vet/Staticcheck, ordinary and race tests, Clang ASAN ICO/BMP tests and govulncheck passed.",
+            "Unpatched bmpload.c reproduced an ASAN report: WRITE of size 256, 0 bytes after a 255-byte region (reported as unknown-crash on this toolchain); patched cases passed."
+          ],
+          "local_commit": "ca1ac3df44df00ea1e7764c50f9730b99c6f4a5a"
+        },
+        {
+          "commit": "d5661b124e0cbfc0afa4f784f74ada6763b38805",
+          "subject": "xmlparser: re-parse text tokens after replacing entities in them",
+          "upstream_paths": [
+            "xmlparser/document.go",
+            "xmlparser/document_test.go",
+            "xmlparser/node.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "xmlparser is not imported. SVG detection/sanitization was removed; default original requests reject SVG and processing requests reject unsupported input.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "731497eb99070411b3f483b81ca036daf33d78a1",
+          "subject": "xmlparser: fix writing attributes that contain both single and double quotes",
+          "upstream_paths": [
+            "xmlparser/tokens.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "XML attribute serialization is absent; there is no local xmlparser implementation to patch.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "e2c5ed453dd664c913a785497a96c1ad9589b7a1",
+          "subject": "Bump base image to v4.0.10",
+          "upstream_paths": [
+            ".devcontainer/docker-compose.yml",
+            ".github/workflows/container-info.yml",
+            "docker/Dockerfile",
+            "go.mod",
+            "go.sum"
+          ],
+          "local_paths": [
+            "Dockerfile",
+            "go.mod"
+          ],
+          "status": "not_applicable",
+          "reason": "Upstream base v4.0.10 and cloud/telemetry/tooling dependency updates are not this Alpine image or its Go dependency graph. go-xmp v1.0.0 is unchanged. Compared upstream base v4.0.9..v4.0.11: version updates only, no additional native source patches in that interval; native versions remain Alpine-managed, not certified vulnerability-free by this review.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "05b1cbcd7ede7f6e040cd297824e9f4f1dc3015d",
+          "subject": "ContentDisposition fix (#1732)",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "fetcher/fetcher.go",
+            "fetcher/transport/url.go",
+            "fetcher/transport/url_test.go",
+            "handlers/processing/handler.go",
+            "handlers/processing/request_methods.go",
+            "handlers/stream/handler.go",
+            "handlers/stream/handler_test.go"
+          ],
+          "local_paths": [
+            "internal/httpserver/server.go",
+            "internal/httpserver/source_offer.go"
+          ],
+          "status": "not_applicable",
+          "reason": "Remote fetcher/streaming/processing handlers are not imported. Original and transformed local images set no Content-Disposition filename from a URL. The source-offer endpoint uses a fixed ixoss-source.tar.gz filename; unsupported query parameters are rejected.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "f729ff92249f7197e696fda3db50e09b52084c0d",
+          "subject": "IMG-210: svg sanitization (#1731)",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "processing/svg/href.go",
+            "processing/svg/href_test.go",
+            "processing/svg/svg.go",
+            "processing/svg/svg_test.go",
+            "xmlparser/node.go"
+          ],
+          "local_paths": [
+            "internal/httpserver/server.go",
+            "internal/processing/processing.go"
+          ],
+          "status": "not_applicable",
+          "reason": "No SVG sanitizer or xmlparser is imported. Default original SVG requests return 415; transforms reject SVG. Explicit non-image passthrough serves application/octet-stream with nosniff and does not promise SVG sanitization.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "0a47fd8fc684615176ee29d653d0c1ba52d52001",
+          "subject": "Updated CHANGELOG",
+          "upstream_paths": [
+            "CHANGELOG.md"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream changelog bookkeeping; applicable runtime patches are tracked individually.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "4c20e740f4e26f775a5f5c5df98488252b00010e",
+          "subject": "Fixed order in CHANGELOG",
+          "upstream_paths": [
+            "CHANGELOG.md"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream changelog ordering only.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "3c66d385f8150a896ef851445ad38511e1ecbd7c",
+          "subject": "Close imgproxy instance in tests to prevent leaks; Suppress false-positive LSan detections",
+          "upstream_paths": [
+            ".runrc",
+            "lsan.supp",
+            "testutil/servertest/suite.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream test-server lifetime and LSan suppression configuration are not imported. Local native tests already close image data and clear images; ASAN bounds tests are run with detect_leaks=0, without claiming a leak audit.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "8382771cbc866f87a1cc26ef173c5ba7cacea212",
+          "subject": "Suppress all LSan detections from libfontconfig.so",
+          "upstream_paths": [
+            "lsan.supp"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream fontconfig LSan suppression file is not imported; no production-source change.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "d2a7f9987a57f747e3317d366d67efa9bcb45ffb",
+          "subject": "v4.0.18",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "version/version.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream v4.0.18 release bookkeeping; source baseline remains v4.0.17 with explicitly selected backports.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "2ff65a1e02eb4660b9b8345289212c81f148ae18",
+          "subject": "Update base Docker image",
+          "upstream_paths": [
+            ".devcontainer/docker-compose.yml",
+            ".github/workflows/container-info.yml",
+            "docker/Dockerfile"
+          ],
+          "local_paths": [
+            "Dockerfile"
+          ],
+          "status": "not_applicable",
+          "reason": "Upstream imgproxy-base v4.0.11 is not used. Equivalent v4.0.19 CA distrust outcome is adapted separately by requiring Alpine ca-certificates-bundle>=20261020-r0 in build and runtime stages; real runtime bundle checks exclude the three removed emSign roots.",
+          "dependencies": [],
+          "evidence": [
+            "ca1ac3df44df00ea1e7764c50f9730b99c6f4a5a: Dockerfile requires the Alpine fixed CA bundle; image regression verifies actual trusted root subjects, not only package versions."
+          ]
+        },
+        {
+          "commit": "313804cdbce8026cdd10279214020ed27aa4f328",
+          "subject": "docker: migrate to Ubuntu 26.04",
+          "upstream_paths": [
+            "docker/Dockerfile"
+          ],
+          "local_paths": [
+            "Dockerfile"
+          ],
+          "status": "not_applicable",
+          "reason": "Ubuntu 26.04 migration is not applicable to the required Alpine 3.23 runtime. The v4.0.19 CA security outcome is handled via the Alpine bundle floor, rather than switching distributions.",
+          "dependencies": [],
+          "evidence": [
+            "ca1ac3df44df00ea1e7764c50f9730b99c6f4a5a: Dockerfile requires the Alpine fixed CA bundle; image regression verifies actual trusted root subjects, not only package versions."
+          ]
+        },
+        {
+          "commit": "c5872712cd2af7c687a318df5b9e2ba06a3c9b6d",
+          "subject": "docker: update AWS Lambda adapter",
+          "upstream_paths": [
+            "docker/Dockerfile"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "AWS Lambda adapter is not included in this service image.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "dfc7b0a3d111c718eeb5bbddffba022e899e5561",
+          "subject": "docker: add a fallback for IMGPROXY_MALLOC to the entrypoint",
+          "upstream_paths": [
+            "docker/entrypoint.sh"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "The upstream allocator-selecting entrypoint and IMGPROXY_MALLOC configuration are absent. This project invokes ixoss directly on musl.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "69e897998244aef5300058eebcaee20c8c6c2949",
+          "subject": "Update deps",
+          "upstream_paths": [
+            "go.mod",
+            "go.sum"
+          ],
+          "local_paths": [
+            "go.mod"
+          ],
+          "status": "not_applicable",
+          "reason": "Azure, AWS, Google and related indirect module updates belong to excluded components. The only local module dependency, go-xmp v1.0.0, is unchanged; the build already uses Go 1.27.3.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "19b29fe921c5e02c26ae30536711e477d53d5c6d",
+          "subject": "Bump version to 4.0.19",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "version/version.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream v4.0.19 version/changelog bookkeeping. iXoSS version and audited source baseline are independent.",
+          "dependencies": [],
+          "evidence": []
+        }
+      ]
     }
   ],
   "prior_evidence": [

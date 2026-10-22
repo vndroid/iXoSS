@@ -124,6 +124,43 @@ applicability reasons and validation evidence for the two adopted ICO patches.
 Earlier BMP fixes are recorded as prior evidence, not a completed older review
 interval. This is not a comprehensive audit of older history or native packages.
 
+### 2026-10-22: reviewed through v4.0.19
+
+The additional interval in `REVIEWS.json` covers all 18 commits in
+v4.0.17..v4.0.19, ending at `19b29fe921c5e02c26ae30536711e477d53d5c6d`.
+The source baseline remains v4.0.17; the review cursor is not a claim that this
+port has become an unmodified v4.0.19 release.
+
+- Backported `9d8bf3e`'s one-byte BMP RLE8 overflow fix. The new test reproduced
+  a 256-byte write beyond a 255-byte heap allocation with the old decoder.
+  ASAN reported `unknown-crash` on this toolchain, with the explicit write size
+  and allocation boundary. The patched ordinary/race/ASAN cases pass.
+- Adapted `29bd1cd`'s ASAN CI testing to local ICO/BMP regressions. Its DCT
+  helper fix has no source target: upstream testutil/dct2.c was never imported.
+- SVG sanitizer/XML fixes (`d5661b1`, `731497e`, `f729ff9`) have no local target.
+  SVG is rejected by the default original endpoint (415) and processing (422).
+  Explicit non-image passthrough uses application/octet-stream with nosniff;
+  it deliberately does not implement or promise SVG sanitization.
+- URL-query leakage into Content-Disposition (`05b1cbc`) has no local target.
+  The remote fetcher and upstream response handlers are absent. Local image
+  responses do not derive attachment filenames from URLs; the source archive
+  download uses a fixed filename.
+- Adapted v4.0.19's CA distrust outcome to Alpine: both Docker stages require
+  `ca-certificates-bundle>=20261020-r0`, upgrading even a cached older base.
+  Runtime bundle verification excludes emSign ECC Root CA - C3, emSign ECC
+  Root CA - G3 and emSign Root CA - C1 while retaining a populated trust store.
+  This is an Alpine package update, not a port of Ubuntu or the Lambda adapter.
+- The upstream Go module updates affect removed cloud/telemetry/tooling code;
+  go-xmp v1.0.0 is unchanged and this project already builds with Go 1.27.3.
+
+The supplemental master check covers `afd17ddbc8d8b24cdfd276b68a1064d28aaed261`
+through `5d0dd567a134d85341f9d3256b487bfd503a9f79`. Beyond the reviewed release
+changes and merges, it contains a base-image version bump, not an additional
+runtime source fix to port. The upstream base v4.0.9..v4.0.11 diff contains
+dependency version updates rather than additional native source patches.
+Native versions remain Alpine-managed; this review does not certify all
+native dependencies as free of vulnerabilities.
+
 To prepare a later release review using a temporary upstream checkout:
 
 ```sh
