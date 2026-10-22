@@ -1023,6 +1023,17 @@
 +func Sign(path string, key, salt []byte, signatureSize int) string {
 +	return base64.RawURLEncoding.EncodeToString(signatureFor(path, key, salt, signatureSize))
 +}
+--- upstream/vips/bmpload.c
++++ internal/vips/bmpload.c
+@@ -690 +690,2 @@
+-  // 255 bytes, and our buffer is smaller than that, we need it to be at least 255 bytes.
++  // 255 bytes, and our buffer is smaller than that, we need it to be at least 256 bytes
++  // (255 bytes + 1 byte of padding).
+@@ -692,2 +693,2 @@
+-  if (row_buffer_length < 255) {
+-    row_buffer_length = 255;
++  if (row_buffer_length < 256) {
++    row_buffer_length = 256;
 --- upstream/vips/config.go
 +++ internal/vips/config.go
 @@ -8 +8,3 @@

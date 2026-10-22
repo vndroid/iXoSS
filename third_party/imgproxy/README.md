@@ -13,11 +13,11 @@ cannot be recovered uniquely from the adapted files. The previous description
 as approximately v4.0.14/v4.0.15 was incomplete: the port also contains master
 changes absent from those releases.
 
-The audit on 2026-10-13 compared every non-test Go/C/header file in the 13
+The audit on 2026-10-22 compared every non-test Go/C/header file in the 13
 derived directories listed in NOTICE. Only the import prefix was normalized
 from `github.com/vndroid/iXoSS/internal/` to
 `github.com/imgproxy/imgproxy/v4/`; comments, whitespace and code were not
-normalized. Against v4.0.17, 52 files match exactly after that rewrite, 30
+normalized. Against v4.0.17, 51 files match exactly after that rewrite, 31
 contain modifications, and 3 have no upstream counterpart. UPSTREAM.json
 records the local and upstream SHA-256 values and classification for each file.
 [PORT.diff](PORT.diff) contains the complete normalized source differences
@@ -54,12 +54,12 @@ cherry-picked or that every master change was imported.
 
 ## Intentional differences
 
-The 30 modified files fall into these groups; the per-file list is in the lock:
+The 31 modified files fall into these groups; the per-file list is in the lock:
 
 | Area | Differences retained by iXoSS |
 | --- | --- |
 | processing (9 files), options/keys | OSS-specific operations/options, arbitrary rotation, brightness/contrast, rounded shapes, output format/animation handling, removal of SVG processing, local timeout API and error handling |
-| vips (9 files) | Additional C operations, runtime encoder/load-option probes, per-request save overrides, decoupling from upstream imagedata/options, configuration/error adaptation and ICO buffer cleanup |
+| vips (10 files) | Additional C operations, runtime encoder/load-option probes, per-request save overrides, decoupling from upstream imagedata/options, configuration/error adaptation, ICO buffer cleanup and the RLE8 padding bound |
 | security (4 files) | IXOSS configuration and limit validation, original-header checks, signing helper and adapted errors |
 | auximageprovider (3 files) | Close interface, local-only watermark source and IXOSS configuration |
 | env (3 files), imagetype/type | Removal of cloud-config support, IXOSS prefix handling and master logging/type changes |
@@ -77,6 +77,7 @@ root README's "What was changed relative to imgproxy" for the functional detail.
 | --- | --- |
 | v4.0.16 / `a821b6a4cb07a1bf2bb9077431d1c1e734d79917` | Reject declared ICO entries above 10 MiB before allocating; check allocation failure; free buffers on failures |
 | v4.0.17 / `39fd9e844a8a46084161502e993d5a3c16ccf28d` | Require a full 40-byte BMP payload header, excluding the synthesized 14-byte BMP file header |
+| v4.0.18 / `9d8bf3e54b8665a98c5934df15e7d0a31c5934e2` | Reserve 256 bytes for the longest RLE8 absolute run: 255 pixel bytes plus one word-alignment padding byte |
 
 The v4.0.16 length check alone was insufficient. The port uses the corrected
 v4.0.17 payload check directly and retains its existing g_free cleanup.
@@ -87,7 +88,11 @@ pixel output. Allocation failure is guarded in C but is not fault-injected.
 
 Earlier BMP fixes (`6f56c3a1dcc5f963ee527b8a9ebd0b2bcae6ca33` and
 `60d367c8deb20aa514afeb8f7b21cef7e53085ed`) are already present:
-bmpload.c matches the pinned release byte for byte.
+their fixes remain present; bmpload.c now differs from the pinned release by
+the additional RLE8 padding bound. New tests force lazy decoding for narrow
+and full-width odd/even runs, check decoded pixels and reject truncated input.
+CI runs the ICO/BMP regression cases with Clang ASAN. Leak detection is disabled
+because of unrelated fontconfig reports; this is a bounds check, not a leak audit.
 
 ## Reproducing the audit
 

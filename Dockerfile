@@ -1,6 +1,8 @@
 FROM golang:1.27-alpine3.23 AS build
 
-RUN apk add --no-cache build-base pkgconf vips-dev vips-heif vips-jxl
+# Require the Alpine bundle that distrusts the affected eMudhra roots.
+RUN apk add --no-cache 'ca-certificates-bundle>=20261020-r0' \
+    build-base pkgconf vips-dev vips-heif vips-jxl
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -31,7 +33,8 @@ COPY --from=build /out/source.tar.gz /ixoss-source.tar.gz
 FROM alpine:3.23 AS runtime
 ARG IXOSS_SOURCE_URL=""
 
-RUN apk add --no-cache vips vips-heif vips-jxl font-wqy-zenhei \
+RUN apk add --no-cache 'ca-certificates-bundle>=20261020-r0' \
+    vips vips-heif vips-jxl font-wqy-zenhei \
     && addgroup -S -g 10001 ixoss \
     && adduser -S -D -H -u 10001 -G ixoss ixoss \
     && mkdir -p /srv/images /var/cache/ixoss \
