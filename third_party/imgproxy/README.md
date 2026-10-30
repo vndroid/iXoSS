@@ -172,7 +172,17 @@ python3 -m unittest discover -s tools -p 'test_*.py'
 Replace NEW_RELEASE with the selected tag. The report resolves full SHAs and
 includes every commit, even unmapped files, without applying patches or deciding
 applicability. Review release notes, complete diffs, callers and dependencies.
-Use `ported`, `already_present`, `not_applicable`, `pending_analysis`,
+Use `adapted` for an independent implementation in the same release commit,
+or `ported`, `already_present`, `not_applicable`, `pending_analysis`,
 `pending_port` or `pending_validation`, recording reasons and regression evidence.
 Keep an interval incomplete while any decision is pending. Updating the review
 cursor does not change the source baseline or make a partial port a pure release.
+
+### 2026-10-30: per-release review through v4.0.20
+
+The v4.0.17 source baseline is unchanged. Release-specific applicability:
+[CHANGE.md](CHANGE.md), which is updated for every upstream release.
+The existing BMP and CA fixes are retained. The new native security builds
+adapt libheif 1.23.7 and HarfBuzz 15.0.0 to Alpine; Brotli 1.2.1 is required.
+The OSS watermark contract is unchanged. See CHANGE.md’s v4.0.20 entry for image
+inventory limitations, source archives, verification and rollback.

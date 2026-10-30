@@ -1,8 +1,18 @@
+FROM alpine:3.23 AS native
+RUN apk add --no-cache build-base cmake ninja meson python3 curl \
+    glib-dev freetype-dev icu-dev libde265-dev x265-dev aom-dev dav1d-dev
+COPY tools/build_native.sh /build_native.sh
+RUN sh /build_native.sh
+
 FROM golang:1.27-alpine3.23 AS build
 
 # Require the Alpine bundle that distrusts the affected eMudhra roots.
 RUN apk add --no-cache 'ca-certificates-bundle>=20261020-r0' \
     build-base pkgconf vips-dev vips-heif vips-jxl
+COPY --from=native /native-root/usr/ /usr/
+COPY --from=native /native-licenses/ /out/native-licenses/
+COPY --from=native /native-src/libheif.tar.gz /out/native-source/libheif.tar.gz
+COPY --from=native /native-src/harfbuzz.tar.gz /out/native-source/harfbuzz.tar.gz
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -16,7 +26,8 @@ RUN go mod vendor \
     && mkdir -p /out/licenses \
     && cp /usr/local/go/LICENSE /out/licenses/LICENSE-Go \
     && cp /usr/local/go/PATENTS /out/licenses/PATENTS-Go \
-    && tar -czf /out/source.tar.gz cmd internal vendor tools third_party \
+    && cp -r /out/native-source ./native-source \
+    && tar -czf /out/source.tar.gz native-source cmd internal vendor tools third_party \
         go.mod go.sum LICENSE LICENSE-imgproxy NOTICE README.md DIFF.md Dockerfile compose.example.yaml
 ARG CHANNEL=DEVELOPMENT
 ARG BUILD_DATE=""
@@ -34,12 +45,16 @@ FROM alpine:3.23 AS runtime
 ARG IXOSS_SOURCE_URL=""
 
 RUN apk add --no-cache 'ca-certificates-bundle>=20261020-r0' \
-    vips vips-heif vips-jxl font-wqy-zenhei \
+    'brotli>=1.2.1-r0' vips vips-heif vips-jxl font-wqy-zenhei \
+    libde265 x265 aom-libs dav1d icu-libs \
     && addgroup -S -g 10001 ixoss \
     && adduser -S -D -H -u 10001 -G ixoss ixoss \
     && mkdir -p /srv/images /var/cache/ixoss \
     && chown ixoss:ixoss /srv/images /var/cache/ixoss
 
+RUN rm -f /usr/lib/libheif.so* /usr/lib/libharfbuzz*.so*
+COPY --from=native /native-root/usr/lib/ /usr/lib/
+COPY --from=native /native-licenses/ /usr/share/doc/ixoss/licenses/
 COPY --from=build /out/ixoss /usr/local/bin/ixoss
 COPY LICENSE LICENSE-imgproxy NOTICE /usr/share/doc/ixoss/
 COPY third_party/imgproxy/ /usr/share/doc/ixoss/imgproxy/

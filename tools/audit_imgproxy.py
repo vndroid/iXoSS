@@ -23,7 +23,7 @@ NOTICE_HEADER = (
     b"// See LICENSE-imgproxy, NOTICE and third_party/imgproxy/UPSTREAM.json.\n\n"
 )
 KINDS = ("identical_after_import_rewrite", "modified", "local_only")
-STATES = ("ported", "already_present", "not_applicable", "pending_analysis",
+STATES = ("adapted", "ported", "already_present", "not_applicable", "pending_analysis",
           "pending_port", "pending_validation")
 DIRECTORIES = (
     "processing", "options", "security", "vips", "imagetype", "imagemeta",
@@ -106,6 +106,9 @@ def validate(lock, reviews):
                 require(valid_path(path), "invalid review file path")
             for dependency in commit["dependencies"]:
                 require(valid_hash(dependency), "invalid dependency SHA")
+            if commit["status"] == "adapted":
+                require(bool(commit["evidence"]) and bool(commit["local_paths"]),
+                        "adapted patch lacks evidence or local mapping")
             if commit["status"] in ("ported", "already_present"):
                 require(bool(commit["evidence"]) and bool(commit["local_paths"]),
                         "adopted patch lacks evidence or local mapping")

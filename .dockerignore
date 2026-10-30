@@ -21,3 +21,7 @@
 !README.md
 !DIFF.md
 !compose.example.yaml
+!tools/build_native.sh
+# Verification may run against the same checkout before image creation.
+**/__pycache__
+**/*.pyc

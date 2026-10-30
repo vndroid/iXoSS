@@ -479,6 +479,85 @@
           "evidence": []
         }
       ]
+    },
+    {
+      "from": {
+        "version": "v4.0.19",
+        "commit": "19b29fe921c5e02c26ae30536711e477d53d5c6d"
+      },
+      "to": {
+        "version": "v4.0.20",
+        "commit": "40db5f87cd15d64b5bfd35ac645185f075fa31b5"
+      },
+      "date": "2026-10-30",
+      "scope": "All four upstream commits assessed; native security updates adapted to Alpine while retaining OSS contract. Not a comprehensive native vulnerability audit.",
+      "complete": true,
+      "commits": [
+        {
+          "commit": "ea6db5971a89b55b9653bf271d440d2b5221a0df",
+          "subject": "Drop pebble from Docker image",
+          "upstream_paths": [
+            "docker/Dockerfile"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Pebble is not installed in the Alpine image; no removal needed.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "9784e2e51bf930c19e801a3728c684b0d40f3831",
+          "subject": "scale: 0 tests",
+          "upstream_paths": [
+            "options/parser/apply.go",
+            "options/parser/processing_options_test.go",
+            "processing/watermark_test.go",
+            "testdata/test-hashes/TestWatermark/TestWatermark/re_opacity_1_scale_0/test.hash"
+          ],
+          "local_paths": [
+            "internal/ossprocess/watermark.go",
+            "internal/ossprocess/effects_test.go"
+          ],
+          "status": "not_applicable",
+          "reason": "OSS P_ remains 1..100 and explicitly rejects P_0. Omitting P_ already keeps native watermark size. Upstream URL parser is absent; preserve OSS contract.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "f9b2a42ce6d3a264affdf25018a67afa20338e19",
+          "subject": "Updated dependencies, v4.0.12",
+          "upstream_paths": [
+            ".devcontainer/docker-compose.yml",
+            ".github/workflows/container-info.yml",
+            "docker/Dockerfile",
+            "go.mod",
+            "go.sum"
+          ],
+          "local_paths": [
+            "Dockerfile",
+            "tools/build_native.sh"
+          ],
+          "status": "adapted",
+          "reason": "Retain Alpine and unchanged go-xmp. Require Brotli 1.2.1; build checksum-pinned libheif 1.23.7 and HarfBuzz 15.0.0, with source archives and notices. librsvg stays distribution-managed because SVG input is rejected; this is not a complete native dependency audit.",
+          "dependencies": [],
+          "evidence": [
+            "Checksum-verified native build and actual-image regression; see CHANGE.md (v4.0.20)."
+          ]
+        },
+        {
+          "commit": "40db5f87cd15d64b5bfd35ac645185f075fa31b5",
+          "subject": "v4.0.20",
+          "upstream_paths": [
+            "CHANGELOG.md",
+            "version/version.go"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream release metadata only; iXoSS version stays independent.",
+          "dependencies": [],
+          "evidence": []
+        }
+      ]
     }
   ],
   "prior_evidence": [

@@ -41,6 +41,17 @@ class AuditValidation(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     audit.validate(lock, reviews)
 
+    def test_adapted_decision_requires_mapping_and_evidence(self):
+        for field in ('local_paths', 'evidence'):
+            with self.subTest(field=field):
+                reviews = copy.deepcopy(self.reviews)
+                decision = reviews['intervals'][-1]['commits'][0]
+                decision.update(status='adapted', local_paths=['Dockerfile'],
+                                evidence=['Same-release independent implementation.'])
+                decision[field] = []
+                with self.assertRaises(ValueError):
+                    audit.validate(self.lock, reviews)
+
     def test_source_added_changed_or_removed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
