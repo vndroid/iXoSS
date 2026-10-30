@@ -180,11 +180,11 @@
         "commit": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c"
       },
       "to": {
-        "version": "v4.0.19",
-        "commit": "19b29fe921c5e02c26ae30536711e477d53d5c6d"
+        "version": "v4.0.18",
+        "commit": "d2a7f9987a57f747e3317d366d67efa9bcb45ffb"
       },
       "date": "2026-10-22",
-      "scope": "All 18 commits in v4.0.17..v4.0.19 reviewed, including removed components and Docker/dependency changes. Native library version updates were inspected, but this is not a comprehensive native-package vulnerability audit.",
+      "scope": "All 12 commits in v4.0.17..v4.0.18 assessed; BMP bounds and ASAN backports already present. Native packages require independent maintenance.",
       "complete": true,
       "commits": [
         {
@@ -376,7 +376,22 @@
           "reason": "Upstream v4.0.18 release bookkeeping; source baseline remains v4.0.17 with explicitly selected backports.",
           "dependencies": [],
           "evidence": []
-        },
+        }
+      ]
+    },
+    {
+      "from": {
+        "version": "v4.0.18",
+        "commit": "d2a7f9987a57f747e3317d366d67efa9bcb45ffb"
+      },
+      "to": {
+        "version": "v4.0.19",
+        "commit": "19b29fe921c5e02c26ae30536711e477d53d5c6d"
+      },
+      "date": "2026-10-22",
+      "scope": "All 6 commits in v4.0.18..v4.0.19 assessed; Alpine CA distrust adaptation already present.",
+      "complete": true,
+      "commits": [
         {
           "commit": "2ff65a1e02eb4660b9b8345289212c81f148ae18",
           "subject": "Update base Docker image",
