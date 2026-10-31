@@ -36,9 +36,9 @@ GET /healthz
 ```
 
 路径中包含重复斜杠的请求会收到 `308` 重定向到规范化 URL：`//` 变为 `/`，
-`//sub//photo.jpg` 变为 `/sub/photo.jpg`。仅支持 `x-oss-process` 和
-`x-ixoss-signature` 查询参数。不支持的查询参数和无效的处理选项会在任何路径
-重定向之前返回 `400`。保留的查询键值对保持其原始顺序和 URL 编码，
+`//sub//photo.jpg` 变为 `/sub/photo.jpg`。仅 `x-oss-process` 和
+`x-ixoss-signature` 影响处理和鉴权。其他查询参数直接忽略，不因此重定向。
+无效的处理选项仍在路径重定向之前返回 `400`。查询键值对保持原始顺序和 URL 编码，
 包括可读的 `/` 和逗号。必要的转义如 `%26`、`%23` 和 `%2B` 保持不变。
 格式错误的查询编码、未转义的分号或 URI 查询中的无效字符会返回 `400`。
 签名覆盖的是重复斜杠已折叠的路径，因此重定向后签名仍然有效。
@@ -70,18 +70,20 @@ GET 和 HEAD 接受 `If-None-Match`（包括弱标签、列表和 `*`），
 ### 未变化图像请求
 
 仅包含 `resize` 和/或 `format` 的处理链在所有请求的操作都保留源尺寸和格式时，
-返回原始字节。此检查在磁盘缓存访问之前运行：它忽略已有的转换条目、
+仅在磁盘缓存未命中，且 `IXOSS_STRIP_METADATA=false` 和
+`IXOSS_STRIP_COLOR_PROFILE=false` 同时成立时返回原始字节。默认配置仍处理
+并剥离元数据，缓存命中优先于原图探测。原图快捷路径
 不编码或写入新条目，并报告 `X-IXoSS-Cache: BYPASS`。没有处理参数的原始请求
 也报告相同的标记，包括 GET、HEAD 和条件 `304` 响应。
 
 对于 700x500 的 JPEG，`image/resize,w_700`、`image/resize,w_700,h_500`、
-`image/format,jpg` 和 `image/resize,w_700/format,jpg` 都会传输原始文件。
+`image/format,jpg` 和 `image/resize,w_700/format,jpg` 在关闭两项剥离设置时才会传输原始文件。
 被默认 `limit_1` 规则阻止的 resize 也符合条件。`format,auto`
 仅在其协商格式（或源回退）未变化时符合条件；它仍然发送 `Vary: Accept`。
 `format,gif` 兼容规则继续保留非 GIF 源格式。
 
 quality、crop、rotate、watermark 和所有其他操作保持正常的处理路径，
-即使输出尺寸匹配。直通保留原始元数据、色彩配置、方向和动画字节，
+即使输出尺寸匹配。显式启用的直通保留原始元数据、色彩配置、方向和动画字节，
 而不是应用处理器的默认清理、质量或首选格式设置。
 GET 和 HEAD 共享原始文件的弱 ETag 和长度，包括 `304` 条件响应。
 参数/签名验证、源字节限制和已知源像素限制仍然适用。
@@ -490,7 +492,7 @@ IXOSS_KEY=$(openssl rand -hex 32) IXOSS_SALT=$(openssl rand -hex 32) ixoss
 
 两部分都必须包含。仅签名路径会允许任何人重写他们获得的 URL 上的变换，
 而无限制的 resize 链是花费他人 CPU 的廉价方式；仅签名链会允许他们
-将其指向不同的对象。其他查询参数在签名之外，并在规范化 URL 重定向时被移除。
+将其指向不同的对象。其他查询参数不参与签名、处理和缓存身份，路径重定向时保持原样。
 
 `cmd/sign` 计算签名，读取相同的两个变量：
 
@@ -1139,3 +1141,10 @@ docker buildx build --target source-export \
 归档优先；两者默认未设置，除非在镜像构建时提供了 URL。
 通过代理保持源代码提供可访问，并在更改运行代码时更新它。
 参见[分发声明](third_party/licenses/README.md)了解包清单、原始声明和原生库源代码义务。
+
+### 元数据和缓存策略
+
+`IXOSS_STRIP_METADATA` 和 `IXOSS_STRIP_COLOR_PROFILE` 均默认为 `true`。
+无处理参数的原图始终保留原始字节，可能含 EXIF/GPS。
+磁盘缓存通过一次原子写入保存摘要头与图像，命中时读取保存的强 ETag，
+不重新计算整图哈希。旧缓存视为未命中；处理设置参与缓存身份，容量计入摘要头。

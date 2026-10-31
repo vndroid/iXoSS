@@ -176,3 +176,11 @@ iXoSS 发出 `NoSuchKey`、`InvalidArgument`、`InvalidImage`、`SourceTooLarge`
 - [对图片进行格式转换](https://help.aliyun.com/zh/oss/user-guide/convert-image-formats-2)
 - [查询图片的EXIF信息](https://help.aliyun.com/zh/oss/user-guide/query-the-exif-data-of-an-image-4)
 - [OSS图片处理常见问题及处理方法](https://help.aliyun.com/zh/oss/user-guide/faq-2)
+
+## 原图快捷路径与元数据
+
+等尺寸缩放和同格式请求默认仍剥离元数据及色彩配置。仅同时设置
+`IXOSS_STRIP_METADATA=false`、`IXOSS_STRIP_COLOR_PROFILE=false` 后，
+缓存未命中的等效请求才可能直传原图，保留 EXIF/GPS、方向和动画。
+无处理参数的原图请求始终保留原始字节。缓存命中优先于原图探测。
+额外查询参数直接忽略，不参与签名及处理缓存身份；路径跳转时原样保留。

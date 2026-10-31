@@ -10,7 +10,9 @@ iXoSS is an independent project and is not affiliated with Alibaba Cloud. "OSS"
 refers only to the `x-oss-process` URL grammar it implements.
 
 Version: **0.1.0 (DEVELOPMENT)**. The project is in initial development;
-interfaces may change before 1.0.0.
+interfaces may change before 1.0.0. The first source release tag is `v0.1.0`;
+there was no earlier tagged 0.1.0 release. Release image builds can set
+`CHANNEL=RELEASE`; direct builds retain their development default.
 
 Status: **working.** `resize`, `crop`, `indexcrop`, `trim`, `rotate`,
 `auto-orient`, `blur`, `sharpen`, `pixelate`, `bright`, `contrast`, `circle`,
@@ -54,9 +56,9 @@ GET /healthz
 
 Requests with repeated path slashes receive a `308` redirect to a canonical
 URL: `//` becomes `/`, and `//sub//photo.jpg` becomes `/sub/photo.jpg`. Only
-`x-oss-process` and `x-ixoss-signature` query parameters are supported. Unsupported
-query parameters and invalid processing options receive `400` before any path
-redirect. Retained query pairs keep their original order and URL
+`x-oss-process` and `x-ixoss-signature` affect processing and authentication. Other
+parameters are ignored without a redirect. Invalid processing options receive
+`400` before any path redirect. Query pairs keep their original order and URL
 encoding, including readable `/` and commas. Required escapes such as `%26`,
 `%23` and `%2B` remain intact. Malformed query encoding, unescaped semicolons or
 characters invalid in a URI query receive `400`. Signatures cover the path with
@@ -74,7 +76,7 @@ versioned URLs, `public, max-age=31536000, immutable` can be configured explicit
 Previously cached responses keep their old lifetime until they expire or are
 purged; changing the server policy does not evict browser or CDN caches.
 
-Original files and unchanged resize/format responses use weak ETags based on
+Original files and explicitly enabled original-byte shortcuts use weak ETags based on
 file identity, size and nanosecond mtime;
 replacing a file must update its mtime. Processed images, info JSON and
 average-hue results use strong SHA-256 ETags of the actual response bytes.
@@ -93,20 +95,24 @@ processed GET still needs to produce the output to calculate its content ETag.
 
 A chain containing only `resize` and/or `format` returns the original bytes when
 all requested actions preserve the source dimensions and format. The check runs
-before disk cache access: it ignores existing transformed entries, does not
+only after a disk cache miss, and only when both
+`IXOSS_STRIP_METADATA=false` and `IXOSS_STRIP_COLOR_PROFILE=false`. It does not
 encode or write a new entry, and reports `X-IXoSS-Cache: BYPASS`. Original
 requests without processing parameters report the same marker, including GET,
 HEAD and conditional `304` responses.
 
 For a 700x500 JPEG, `image/resize,w_700`, `image/resize,w_700,h_500`,
-`image/format,jpg` and `image/resize,w_700/format,jpg` all transmit the original.
+`image/format,jpg` and `image/resize,w_700/format,jpg` all qualify when both
+stripping settings are disabled. With the default
+stripping settings, they use normal processing and remove metadata even when
+the requested dimensions match.
 A resize blocked by the default `limit_1` rule also qualifies. `format,auto`
 qualifies only when its negotiated format (or source fallback) is unchanged;
 it still sends `Vary: Accept`. The `format,gif` compatibility rule continues to
 preserve non-GIF source formats.
 
 Quality, crop, rotation, watermark and all other actions keep the normal
-processing path, even if the output dimensions match. Passthrough retains the
+processing path, even if the output dimensions match. When explicitly enabled, passthrough retains the
 original metadata, color profile, orientation and animation bytes instead of
 applying the processor's default cleanup, quality or preferred-format settings.
 GET and HEAD share the original file's weak ETag and length, including `304`
@@ -570,7 +576,7 @@ Both halves have to be in it. Signing the path alone would let anyone rewrite
 the transform on a URL they were handed, and an unbounded chain of resizes is a
 cheap way to spend someone else's CPU; signing the chain alone would let them
 point it at a different object. Other query parameters are outside the
-signature and are removed by the canonical URL redirect.
+signature and are ignored. Path canonicalization preserves them verbatim.
 
 `cmd/sign` computes it, reading the same two variables:
 
@@ -1280,3 +1286,17 @@ a URL was provided at image build time. Keep the source offer accessible through
 proxies and update it when changing the running code.
 See [distribution notices](third_party/licenses/README.md)
 for package inventories, original notices and native-library source obligations.
+
+### Metadata and processed-cache policy
+
+`IXOSS_STRIP_METADATA` and `IXOSS_STRIP_COLOR_PROFILE` default to `true`.
+They apply to every processed request, including equal-size resize and same-format
+requests. Original requests without processing options always return original
+bytes; they can contain EXIF/GPS. Disabling both stripping settings permits the
+identity shortcut on cache misses and retains all original metadata.
+
+Processed cache files atomically store a SHA-256 digest followed by image bytes.
+Cache hits read the saved digest for strong ETags; they do not rehash the image.
+The format and processing settings are part of cache identity. Old cache files
+are ignored and can be removed by normal eviction. The cache size limit counts
+the digest header as well as the image.

@@ -12,7 +12,7 @@ import (
 	"github.com/vndroid/iXoSS/internal/ossprocess"
 )
 
-// tryServeOriginal runs before any disk cache lookup. Returning false leaves
+// tryServeOriginal runs only after a disk cache miss. Returning false leaves
 // processing unchanged when the request changes the image or cannot be proven
 // to be an identity operation. The opened object is reused for transmission.
 func (s *Server) tryServeOriginal(w http.ResponseWriter, r *http.Request, chain *ossprocess.Chain, negotiated imagetype.Type) bool {

@@ -25,6 +25,7 @@ func TestMatchingRequestsBypassProcessingAndCache(t *testing.T) {
 	}
 	// A nil processor guarantees these requests cannot quietly re-encode.
 	s := newLimitedServer(t, root, 1<<20)
+	s.cfg.AllowOriginalPassthrough = true
 	cacheDir := t.TempDir()
 	disk, err := cache.NewDisk(cacheDir)
 	if err != nil {
@@ -35,13 +36,13 @@ func TestMatchingRequestsBypassProcessingAndCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key := s.cacheKey(info, "image/resize,w_700\x00")
-	stale := []byte("old transformed result")
+	key := s.cacheKey(info, "processed-v2\x00\x00image/resize,w_700\x00")
+	stale := testJPEG(t, 700, 500, 0)
 	if err := disk.Put(key, stale); err != nil {
 		t.Fatal(err)
 	}
 	for _, chain := range []string{
-		"image/resize,w_700", "image/resize,h_500", "image/resize,w_700,h_500",
+		"image/resize,h_500", "image/resize,w_700,h_500",
 		"image/resize,p_100", "image/resize,w_1400", "image/format,jpg",
 		"image/resize,w_700/format,jpg", "image/resize,w_700/format,auto",
 	} {
@@ -73,6 +74,11 @@ func TestMatchingRequestsBypassProcessingAndCache(t *testing.T) {
 				t.Fatal("automatic passthrough lost Vary")
 			}
 		}
+	}
+	hit := httptest.NewRecorder()
+	s.ServeHTTP(hit, httptest.NewRequest(http.MethodGet, "/photo.jpg?x-oss-process=image/resize,w_700", nil))
+	if hit.Code != 200 || hit.Header().Get("X-IXoSS-Cache") != "HIT" || !bytes.Equal(hit.Body.Bytes(), stale) {
+		t.Fatal("cache hit must precede identity probing")
 	}
 	entry, err := disk.Get(key)
 	if err != nil {
@@ -154,6 +160,7 @@ func TestPassthroughResizeUsesMetadataFallback(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := newLimitedServer(t, root, 1<<20)
+		s.cfg.AllowOriginalPassthrough = true
 		got := httptest.NewRecorder()
 		s.ServeHTTP(got, httptest.NewRequest(http.MethodGet, "/"+file+"?x-oss-process=image/resize,w_20", nil))
 		if got.Code != http.StatusOK || got.Header().Get("X-IXoSS-Cache") != "BYPASS" || !bytes.Equal(got.Body.Bytes(), w.Body.Bytes()) {

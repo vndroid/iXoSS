@@ -106,7 +106,7 @@ func TestResponseValidators(t *testing.T) {
 		t.Fatal("file modification must invalidate the original validator")
 	}
 
-	for _, target := range []string{"/healthz", "//photo.jpg", "/missing.jpg", "/photo.jpg?foo=1", "/photo.jpg?x-oss-process=image/resize,w_bad"} {
+	for _, target := range []string{"/healthz", "//photo.jpg", "/missing.jpg", "/photo.jpg?x-oss-process=image/resize,w_bad"} {
 		w := request(http.MethodGet, target, "*", "")
 		if w.Code == http.StatusNotModified || w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("X-Content-Type-Options") != "nosniff" {
 			t.Fatalf("%s: incorrect status or policy: %d %v", target, w.Code, w.Header())

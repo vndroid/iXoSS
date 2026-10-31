@@ -34,11 +34,11 @@ func TestEvictBySize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 10 entries of 1000 bytes = 10,000 total; a 6,000 limit should leave six.
+	// Ten entries include a digest header; eviction counts physical cache bytes.
 	fill(t, d, 10, 1000)
 
-	if got := totalBytes(t, d); got != 10000 {
-		t.Fatalf("setup: %d bytes, want 10000", got)
+	if got := totalBytes(t, d); got != 10*(1000+headerSize) {
+		t.Fatalf("setup: %d bytes, want data plus headers", got)
 	}
 
 	removed, freed, err := d.Evict(EvictConfig{MaxBytes: 6000, Interval: time.Minute})
@@ -54,7 +54,7 @@ func TestEvictBySize(t *testing.T) {
 	if after == 0 {
 		t.Errorf("eviction emptied the cache; removed=%d freed=%d", removed, freed)
 	}
-	if want := int64(6000); after < want-1000 {
+	if want := int64(6000); after < want-1000-headerSize {
 		t.Errorf("evicted too much: %d bytes left, expected close to %d", after, want)
 	}
 }

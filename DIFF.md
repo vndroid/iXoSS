@@ -191,3 +191,16 @@ knows they were looked at rather than overlooked:
 - [对图片进行格式转换](https://help.aliyun.com/zh/oss/user-guide/convert-image-formats-2)
 - [查询图片的EXIF信息](https://help.aliyun.com/zh/oss/user-guide/query-the-exif-data-of-an-image-4)
 - [OSS图片处理常见问题及处理方法](https://help.aliyun.com/zh/oss/user-guide/faq-2)
+
+## Identity requests and metadata
+
+Equal-size resize or same-format requests still apply metadata and color-profile
+stripping by default. A cache miss can return original bytes only when both
+`IXOSS_STRIP_METADATA=false` and `IXOSS_STRIP_COLOR_PROFILE=false`, and all
+actions preserve dimensions and format. This explicit shortcut preserves EXIF,
+including GPS, orientation, color profiles and animation. Unprocessed original
+requests always preserve original bytes. Cache hits precede identity probing.
+
+Extra query parameters (cache-busters and analytics tags) are ignored, preserved
+on path redirects, and excluded from signatures and processed-cache identity.
+Invalid query encoding and invalid processing options still return 400.

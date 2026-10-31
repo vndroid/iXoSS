@@ -202,8 +202,6 @@ func TestInvalidParametersReturnBadRequest(t *testing.T) {
 	src := &recordingPathSource{Source: s.src}
 	s.src = src
 	for _, query := range []string{
-		"foo=1", "x%2Dunknown=1", "foo", "=1",
-		"x-oss-process=image/info&foo=1",
 		"x-oss-process=video/info", "x-oss-process=image/unknown",
 		"x-oss-process=image/resize,w_bad", "x-oss-process=image/resize,z_1",
 		"x-oss-process=style/missing",
@@ -227,13 +225,7 @@ func TestInvalidParametersReturnBadRequest(t *testing.T) {
 			}
 		}
 	}
-	for _, path := range []string{"/healthz", "//healthz"} {
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path+"?foo=1", nil))
-		if w.Code != http.StatusBadRequest || w.Header().Get("Location") != "" {
-			t.Errorf("%s: status=%d Location=%q", path, w.Code, w.Header().Get("Location"))
-		}
-	}
+
 }
 
 func TestInvalidQueryDoesNotRedirect(t *testing.T) {

@@ -79,11 +79,22 @@ func (d *Disk) path(k Key) string {
 	return filepath.Join(d.root, s[:2], s[2:4], s[4:])
 }
 
-// Entry is a cached result opened for reading.
+// A single atomic cache file contains a magic value, digest and image bytes.
+// Legacy files are misses, so hits never hash image contents.
+const headerSize = 40
+
+var cacheMagic = [8]byte{'I', 'X', 'O', 'S', 'S', 'C', '2', 0}
+
+// Entry exposes only image bytes; the digest header is hidden from readers.
 type Entry struct {
 	*os.File
-	Size int64
+	reader *io.SectionReader
+	Size   int64
+	ETag   string
 }
+
+func (e *Entry) Read(b []byte) (int, error)                   { return e.reader.Read(b) }
+func (e *Entry) Seek(offset int64, whence int) (int64, error) { return e.reader.Seek(offset, whence) }
 
 // Get opens the cached result for k, or returns ErrMiss.
 func (d *Disk) Get(k Key) (*Entry, error) {
@@ -99,7 +110,14 @@ func (d *Disk) Get(k Key) (*Entry, error) {
 		f.Close()
 		return nil, err
 	}
-	return &Entry{File: f, Size: st.Size()}, nil
+	var header [headerSize]byte
+	if _, err := io.ReadFull(f, header[:]); err != nil || string(header[:8]) != string(cacheMagic[:]) {
+		f.Close()
+		return nil, ErrMiss
+	}
+	size := st.Size() - headerSize
+	return &Entry{File: f, reader: io.NewSectionReader(f, headerSize, size), Size: size,
+		ETag: fmt.Sprintf(`"%x"`, header[8:])}, nil
 }
 
 // Put stores b under k.
@@ -123,6 +141,11 @@ func (d *Disk) Put(k Key, b []byte) error {
 		os.Remove(tmpName)
 	}
 
+	digest := sha256.Sum256(b)
+	if _, err := tmp.Write(append(cacheMagic[:], digest[:]...)); err != nil {
+		cleanup()
+		return err
+	}
 	if _, err := tmp.Write(b); err != nil {
 		cleanup()
 		return err
@@ -142,7 +165,7 @@ func (d *Disk) Put(k Key, b []byte) error {
 }
 
 // WriteTo copies a cached entry to w.
-func (e *Entry) WriteTo(w io.Writer) (int64, error) { return io.Copy(w, e.File) }
+func (e *Entry) WriteTo(w io.Writer) (int64, error) { return io.Copy(w, e.reader) }
 
 // Stats walks the cache and reports entry count and total bytes. It is O(n) in
 // entries and is meant for an admin endpoint, not a request path.

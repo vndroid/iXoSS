@@ -36,8 +36,8 @@ func TestSourceOffer(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, SourceArchivePath+"?foo=1", nil))
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("unsupported query: %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("ignored query: %d", w.Code)
 	}
 	r := httptest.NewRequest(http.MethodGet, SourceArchivePath, nil)
 	r.Header.Set("Range", "bytes=0-4")

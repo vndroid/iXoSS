@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -37,6 +38,11 @@ func main() {
 	flag.BoolVar(&showVersion, "version", false, "show version and exit")
 	flag.BoolVar(&showVersion, "v", false, "show version and exit")
 	flag.Parse()
+	if flag.NArg() > 0 {
+		fmt.Fprintf(os.Stderr, "unexpected argument: %q\n", flag.Arg(0))
+		flag.Usage()
+		os.Exit(2)
+	}
 	if showVersion {
 		fmt.Print(versionInfo(colorEnabled(os.Stdout)))
 		return
@@ -88,6 +94,12 @@ func run() error {
 		return err
 	}
 	hc := httpserver.NewDefaultConfig()
+	hc.AllowOriginalPassthrough = !pc.StripMetadata && !pc.StripColorProfile
+	variant, err := json.Marshal(pc)
+	if err != nil {
+		return err
+	}
+	hc.CacheVariant = string(variant)
 	hc.Root = root
 	hc.MaxWatermarkBytes = int64(envInt("IXOSS_MAX_WATERMARK_BYTES", int(hc.MaxWatermarkBytes)))
 	hc.WatermarkCacheBytes = int64(envInt("IXOSS_WATERMARK_CACHE_BYTES", int(hc.WatermarkCacheBytes)))

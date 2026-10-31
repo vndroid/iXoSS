@@ -13,7 +13,6 @@ package httpserver
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,6 +48,10 @@ const _ = uint(source.HeaderWindow - imageinfo.HeaderBytes)
 // Config holds the knobs the HTTP layer itself needs. Image-processing config
 // lives in processing.Config / vips.Config.
 type Config struct {
+	// AllowOriginalPassthrough requires both metadata/profile stripping disabled.
+	AllowOriginalPassthrough bool
+	// CacheVariant identifies processing settings that affect output.
+	CacheVariant string
 	// Root is the directory images are served from. Required.
 	Root string
 
@@ -325,9 +328,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// filterQuery validates URI query syntax and escapes before retaining supported
-// pairs in their original order and spelling. It never reinserts decoded data
-// into Location, so encoded separators remain encoded.
+// filterQuery validates query syntax while preserving all raw parameters.
+// Unknown parameters do not affect processing, signing or cache identity.
 func filterQuery(raw string) (string, bool, error) {
 	for i := range len(raw) {
 		c := raw[i]
@@ -339,23 +341,7 @@ func filterQuery(raw string) (string, bool, error) {
 	if _, err := url.ParseQuery(raw); err != nil {
 		return "", false, err
 	}
-	var kept []string
-	for _, pair := range strings.Split(raw, "&") {
-		if pair == "" {
-			continue
-		}
-		key, _, _ := strings.Cut(pair, "=")
-		name, err := url.QueryUnescape(key)
-		if err != nil {
-			return "", false, err
-		}
-		if name != ossprocess.QueryKey && name != SignatureQueryKey {
-			return "", false, fmt.Errorf("unsupported query parameter %q", name)
-		}
-		kept = append(kept, pair)
-	}
-	filtered := strings.Join(kept, "&")
-	return filtered, filtered != raw, nil
+	return raw, false, nil
 }
 
 // collapseSlashes preserves all path segments, including dots and a trailing
@@ -721,17 +707,7 @@ func (s *Server) serveProcessed(w http.ResponseWriter, r *http.Request, chain *o
 		varyOnAccept(w)
 	}
 
-	if chain.CanPassthrough() && s.tryServeOriginal(w, r, chain, negotiated) {
-		return
-	}
-
-	// A matching request needs no encoder; actual transformations still do.
-	if err := chain.CheckEncoders(); err != nil {
-		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
-		return
-	}
-
-	key := s.cacheKey(info, raw+"\x00"+accept)
+	key := s.cacheKey(info, "processed-v2\x00"+s.cfg.CacheVariant+"\x00"+raw+"\x00"+accept)
 
 	if s.cache != nil {
 		if e, err := s.cache.Get(key); err == nil {
@@ -741,6 +717,13 @@ func (s *Server) serveProcessed(w http.ResponseWriter, r *http.Request, chain *o
 		} else if !errors.Is(err, cache.ErrMiss) {
 			slog.Warn("cache read failed", "error", err)
 		}
+	}
+	if s.cfg.AllowOriginalPassthrough && chain.CanPassthrough() && s.tryServeOriginal(w, r, chain, negotiated) {
+		return
+	}
+	if err := chain.CheckEncoders(); err != nil {
+		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", err.Error())
+		return
 	}
 	if r.Method == http.MethodHead {
 		s.serveProcessedHeadMiss(w, r, chain, negotiated)
@@ -1067,26 +1050,16 @@ func (s *Server) release() { <-s.sem }
 
 func (s *Server) writeImage(w http.ResponseWriter, r *http.Request, e *cache.Entry, size int64, mime, cacheStatus string) {
 	if mime == "" {
-		if t, err := imagetype.Detect(e.File, "", ""); err == nil {
+		if t, err := imagetype.Detect(e, "", ""); err == nil {
 			mime = t.Mime()
 		}
 		e.Seek(0, 0)
-	}
-	// Hash the cached bytes without buffering the image in memory.
-	digest := sha256.New()
-	if _, err := io.Copy(digest, e); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, "InternalError", "could not read cached image")
-		return
-	}
-	if _, err := e.Seek(0, io.SeekStart); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, "InternalError", "could not read cached image")
-		return
 	}
 	w.Header().Set("Content-Type", mime)
 	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	w.Header().Set("Cache-Control", s.cfg.CacheControl)
 	w.Header().Set("X-IXoSS-Cache", cacheStatus)
-	if notModified(w, r, fmt.Sprintf(`"%x"`, digest.Sum(nil))) {
+	if notModified(w, r, e.ETag) {
 		return
 	}
 	if r.Method == http.MethodHead {
