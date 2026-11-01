@@ -16,9 +16,10 @@ historical `ported` decision, it does not require a self-referential commit hash
 
 imgproxy-base v4.0.12 updates Brotli, libheif, HarfBuzz and librsvg.
 Alpine 3.23 supplies Brotli 1.2.1 but older libheif and HarfBuzz packages.
-The Dockerfile therefore builds checksum-pinned libheif 1.23.7 and HarfBuzz
-15.0.0 from official source archives, retaining the shared-library ABI used by
-libvips and Pango. libheif includes libde265/x265 and AOM/dav1d codecs.
+The Dockerfile builds checksum-pinned libheif 1.23.7 from its official source
+archive, retaining the shared-library ABI used by libvips. HarfBuzz uses the
+signed abuild package (15.0.0-r0). libheif includes libde265/x265 and
+AOM/dav1d codecs.
 Brotli 1.2.1 is required explicitly. Preserve the existing CA distrust floor.
 
 References:
@@ -26,13 +27,45 @@ References:
 - https://github.com/strukturag/libheif/releases/tag/v1.23.7
 - https://github.com/harfbuzz/harfbuzz/releases/tag/15.0.0
 
-The native source archives are included in the source-export artifact and
-licenses/version information in the runtime image. Alpine's package inventory
-still describes installed distribution packages; native-versions.txt records
-the replacement libraries. Check actual loaded library versions when scanning.
+The libheif source archive is included in the source-export artifact and
+licenses/version information in the runtime image. libheif is installed as
+a genuine locally built APK. HarfBuzz now uses its own standard abuild stage
+as recorded below.
+The package database, ownership and exported inventory record installed versions.
+The unused libheif plugin directory is removed. native-versions.txt
+also records the source-built libheif version; harfbuzz-version.txt and alpine-packages.txt
+record HarfBuzz.
 This is not a comprehensive native package vulnerability audit.
 librsvg remains Alpine-managed: SVG input processing is deliberately absent.
 Pebble is absent. The only Go dependency, go-xmp, is unchanged by this release.
+
+### 2026-11-02: build signed native APKs with abuild
+
+Build libheif 1.23.7 and HarfBuzz 15.0.0 from official checksum-pinned release
+sources using packaging/libheif/APKBUILD and packaging/harfbuzz/APKBUILD,
+based on Alpine 3.23 recipes. Each library has a separate non-root Alpine SDK
+stage. abuild applies distribution compiler settings, runs upstream tests,
+generates dependency metadata and standard subpackages, and signs the APKs.
+
+The Go stage installs matching libheif runtime/dev packages and HarfBuzz
+core/dev/Cairo/GObject/ICU/subset/static/utility/document packages. The final
+image installs only the required runtime packages. HarfBuzz's unused new
+raster/vector/GPU backends are disabled. APK installation verifies signatures;
+extra signing-key trust is removed afterward, without --allow-untrusted.
+The native-export target exposes APKs and public keys. Source export includes
+both recipes and matching native sources, with original licenses and no private
+keys. This improves provenance and dependency resolution; it does not guarantee
+a vulnerability scan with no findings.
+
+Validation: libheif CTest had 39 passed and 12 conditionally skipped entries,
+with no failures; all 241 HarfBuzz Meson tests passed. Exported APK signatures,
+C header/link probes, header/runtime versions, automatic shared-library
+dependencies and matching source/license checks passed. The final runtime has
+no development packages or temporary signing keys. Full application regression
+and ordinary/Race tests in the native SDK passed. Latin, Chinese, mixed and
+missing-font fallback watermark samples matched the preceding image pixel for
+pixel; these samples do not guarantee unchanged output for every font. Retain
+the preceding image, configuration and matching source for rollback.
 
 ### OSS contract
 

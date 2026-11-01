@@ -1,0 +1,99 @@
+# Based on Alpine aports main/harfbuzz/APKBUILD, branch 3.23-stable.
+# iXoSS adaptation: 15.0.0 security release; omit unused new drawing backends.
+pkgname=harfbuzz
+pkgver=15.0.0
+pkgrel=0
+pkgdesc="Text shaping library"
+url="https://harfbuzz.github.io/"
+arch="all"
+license="MIT"
+makedepends="
+	cairo-dev
+	freetype-dev
+	glib-dev
+	gobject-introspection-dev
+	graphite2-dev
+	gtk-doc
+	icu-dev
+	meson
+	"
+checkdepends="python3 py3-fonttools"
+subpackages="
+	$pkgname-static
+	$pkgname-dev
+	$pkgname-cairo
+	$pkgname-doc
+	$pkgname-gobject
+	$pkgname-icu
+	$pkgname-subset
+	$pkgname-utils
+	"
+source="https://github.com/harfbuzz/harfbuzz/releases/download/$pkgver/harfbuzz-$pkgver.tar.xz"
+
+build() {
+	CFLAGS="$CFLAGS -O2 -flto=auto -ffat-lto-objects" \
+	CXXFLAGS="$CXXFLAGS -O2 -flto=auto -ffat-lto-objects" \
+	CPPFLAGS="$CPPFLAGS -O2 -flto=auto -ffat-lto-objects" \
+	abuild-meson \
+		--default-library=both \
+		-Dglib=enabled \
+		-Dgobject=enabled \
+		-Dgraphite2=enabled \
+		-Dicu=enabled \
+		-Dfreetype=enabled \
+		-Draster=disabled \
+		-Dvector=disabled \
+		-Dgpu=disabled \
+		-Dtests="$(want_check && echo enabled || echo disabled)" \
+		-Dcairo=enabled \
+		-Ddocs=enabled \
+		-Dintrospection=enabled \
+		. output
+	meson compile -C output
+}
+
+check() {
+	meson test --print-errorlogs -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+}
+
+icu() {
+	pkgdesc="Harfbuzz ICU support library"
+	replaces="harfbuzz"
+
+	amove usr/lib/lib*icu.so.*
+}
+
+gobject() {
+	pkgdesc="Harfbuzz gobject library"
+	amove usr/lib/lib*gobject.so.*
+}
+
+cairo() {
+	pkgdesc="Harfbuzz cairo library"
+	amove usr/lib/lib*cairo.so.*
+}
+
+subset() {
+	pkgdesc="Harfbuzz subset library"
+	amove usr/lib/lib*subset.so.*
+}
+
+utils() {
+	pkgdesc="$pkgdesc (utilities)"
+
+	amove usr/bin
+}
+
+dev() {
+	default_dev
+	provides="harfbuzz-bootstrap-dev"
+	provider_priority=2
+}
+
+sha512sums="
+5a0e4f446d47c56f1a7eec0890d6c4dee036ebde398bfb372d883004737518621a7167a368384b411b67920c0a8807e74517574929b0982ba0fd72509ed68d19  harfbuzz-15.0.0.tar.xz
+"

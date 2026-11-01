@@ -183,6 +183,8 @@ cursor does not change the source baseline or make a partial port a pure release
 The v4.0.17 source baseline is unchanged. Release-specific applicability:
 [CHANGE.md](CHANGE.md), which is updated for every upstream release.
 The existing BMP and CA fixes are retained. The new native security builds
-adapt libheif 1.23.7 and HarfBuzz 15.0.0 to Alpine; Brotli 1.2.1 is required.
+adapt libheif 1.23.7 to Alpine; Brotli 1.2.1 is required. Following the
+2026-11-02 packaging review, HarfBuzz 15.0.0 also uses an isolated standard
+abuild stage with signed APKs.
 The OSS watermark contract is unchanged. See CHANGE.md’s v4.0.20 entry for image
 inventory limitations, source archives, verification and rollback.

@@ -7,6 +7,12 @@ describes upstream's build, including packages this port does not use.
 
 Additional original notices are retained here:
 
+- `LICENSE-HarfBuzz`: unchanged COPYING shared by HarfBuzz 12.2.0 and 15.0.0,
+  matching the current source-built 15.0.0 package. Source:
+  https://github.com/harfbuzz/harfbuzz/blob/15.0.0/COPYING
+  SHA-256: `ba8f810f2455c2f08e2d56bb49b72f37fcf68f1f4fade38977cfd7372050ad64`.
+  Recheck notices when the packaged version changes.
+
 - `LICENSE-go-xmp`: github.com/trimmer-io/go-xmp v1.0.0, Apache-2.0.
 - `LICENSE-Go` and `PATENTS-Go`: the Go toolchain's standard-library license
   and patent grant. Docker copies the actual builder's versions into the image.
@@ -61,8 +67,10 @@ license documents when distributing an extracted binary.
 
 The runtime image also includes `alpine-packages.txt` and
 `alpine-package-metadata.txt` in `/usr/share/doc/ixoss/`. The latter preserves
-Alpine's installed package metadata, including versions, origins, licenses and
-aports commit references. These files identify the actual image contents;
+installed APK metadata, including versions, origins, licenses and available
+aports commit references. The local libheif and HarfBuzz backports are built from the recipes
+in packaging/libheif/APKBUILD and packaging/harfbuzz/APKBUILD; they are not
+official Alpine package updates. These files identify the actual image contents;
 the historical imgproxy inventory must not be used as that inventory.
 
 Alpine's packaging source is https://gitlab.alpinelinux.org/alpine/aports;

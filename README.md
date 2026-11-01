@@ -805,6 +805,15 @@ can be dropped if the text will never be Chinese.
 Build the repository's [Dockerfile](Dockerfile), which uses Go 1.27 on Alpine
 3.23 for compilation and Alpine 3.23 for the runtime:
 
+Separate Alpine SDK stages build signed libheif 1.23.7 and HarfBuzz 15.0.0 APKs with
+APKBUILD/abuild, automatic dependency metadata and enabled upstream tests.
+The Go stage installs matching development packages; the runtime installs
+only the required runtime packages. Temporary build verification keys are
+removed after installation; the private key never
+leaves the native stage. See [native package instructions](packaging/libheif/README.md)
+for standalone APK/public-key export and the
+[HarfBuzz recipe](packaging/harfbuzz/README.md) for its package layout.
+
 ```sh
 docker build -t ixoss:alpine3.23 .
 mkdir -p images
@@ -820,7 +829,8 @@ license notices. It runs as UID/GID 10001; source files must be readable by that
 user. The default disk cache lives at `/var/cache/ixoss`; if you bind-mount a
 cache directory instead of using the named volume above, make it writable by
 UID 10001. Override configuration with Docker's `-e IXOSS_...` options.
-The build context includes only Go sources, module files and license notices.
+The build context includes source, package recipes, module files and license notices;
+private configuration and build artifacts are excluded.
 
 Or use the [Compose example](compose.example.yaml), which includes a persistent
 cache volume, a health check and automatic restart. It checks the cache every

@@ -700,6 +700,13 @@ level=INFO msg="encodable formats" formats="[jpg png webp gif avif jxl tiff bmp 
 构建仓库的 [Dockerfile](Dockerfile)，使用 Go 1.27 在 Alpine 3.23 上编译，
 Alpine 3.23 作为运行时：
 
+独立的 Alpine SDK 构建阶段通过 APKBUILD/abuild 分别生成带签名的 libheif 1.23.7
+和 HarfBuzz 15.0.0 APK，
+自动检查依赖并运行启用的上游测试。Go 构建阶段安装对应开发包，运行镜像仅安装运行包。
+安装后移除临时信任的构建公钥；私钥不会复制到最终镜像。
+单独导出 APK 和公钥的方法见 [libheif 说明](packaging/libheif/README.md)
+和 [HarfBuzz 说明](packaging/harfbuzz/README.md)。
+
 ```sh
 docker build -t ixoss:alpine3.23 .
 mkdir -p images

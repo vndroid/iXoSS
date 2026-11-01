@@ -1,0 +1,43 @@
+# Based on Alpine aports main/libheif/APKBUILD, branch 3.23-stable.
+# iXoSS adaptation: security release, service codecs, no CLI/pixbuf plugins.
+pkgname=libheif
+pkgver=1.23.7
+pkgrel=0
+pkgdesc="ISO/IEC 23008-12:2017 HEIF file format decoder and encoder"
+url="https://github.com/strukturag/libheif"
+arch="all"
+license="LGPL-3.0-or-later"
+makedepends="libde265-dev x265-dev aom-dev dav1d-dev cmake samurai libjpeg-turbo-dev libpng-dev"
+subpackages="$pkgname-dev"
+source="https://github.com/strukturag/libheif/releases/download/v$pkgver/libheif-$pkgver.tar.gz"
+
+build() {
+	# Follow the distribution's optimisation and hardening flags.
+	export CFLAGS="${CFLAGS/-Os/-O2}"
+	export CXXFLAGS="${CXXFLAGS/-Os/-O2} -flto=auto"
+	cmake -B build -G Ninja \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCMAKE_BUILD_TYPE=None \
+		-DCMAKE_SKIP_INSTALL_RPATH=ON \
+		-DBUILD_DOCUMENTATION=OFF \
+		-DWITH_EXAMPLES=OFF \
+		-DWITH_GDK_PIXBUF=OFF \
+		-DENABLE_PLUGIN_LOADING=OFF \
+		-DWITH_DAV1D=ON \
+		-DWITH_DAV1D_PLUGIN=OFF \
+		-DBUILD_TESTING=ON
+	cmake --build build
+}
+
+check() {
+	ctest --test-dir build --output-on-failure --timeout 120
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+}
+
+sha512sums="
+953f2a59a426de6e2baf717801ee6248eb0713e22e1ccb5213ebd5fa199b1100f443a4e69ee19ff1eb9796ce4e5620a44e8762c03060649214105330df6ee62d  libheif-1.23.7.tar.gz
+"

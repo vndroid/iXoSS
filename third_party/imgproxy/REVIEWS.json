@@ -535,10 +535,13 @@
           ],
           "local_paths": [
             "Dockerfile",
-            "tools/build_native.sh"
+            "tools/build_native.sh",
+            "tools/build_harfbuzz.sh",
+            "packaging/libheif/APKBUILD",
+            "packaging/harfbuzz/APKBUILD"
           ],
           "status": "adapted",
-          "reason": "Retain Alpine and unchanged go-xmp. Require Brotli 1.2.1; build checksum-pinned libheif 1.23.7 and HarfBuzz 15.0.0, with source archives and notices. librsvg stays distribution-managed because SVG input is rejected; this is not a complete native dependency audit.",
+          "reason": "Retain Alpine and unchanged go-xmp. Require Brotli 1.2.1; build checksum-pinned libheif 1.23.7 through an isolated non-root abuild stage with source archive, notice, automatically generated dependencies and signed runtime/dev APKs. HarfBuzz 15.0.0 uses a separate non-root abuild stage with signed standard subpackages, matching development headers, original license and source export. librsvg stays distribution-managed because SVG input is rejected; this is not a complete native dependency audit.",
           "dependencies": [],
           "evidence": [
             "Checksum-verified native build and actual-image regression; see CHANGE.md (v4.0.20)."
