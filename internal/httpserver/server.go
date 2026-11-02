@@ -267,7 +267,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// /healthz is exempt: it reports whether libvips is alive and reveals nothing
 	// about the objects being served, and a load balancer has no key.
 	normalizedPath := collapseSlashes(r.URL.Path)
-	query, queryChanged, err := filterQuery(r.URL.RawQuery)
+	query, err := filterQuery(r.URL.RawQuery)
 	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, "InvalidArgument", "invalid URL query")
 		return
@@ -303,7 +303,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if normalizedPath != r.URL.Path || queryChanged {
+	if normalizedPath != r.URL.Path {
 		// Escape the path, but retain validated query fragments verbatim. The
 		// origin-relative Location cannot redirect to a different host.
 		target := &url.URL{Path: normalizedPath, RawQuery: query}
@@ -330,18 +330,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // filterQuery validates query syntax while preserving all raw parameters.
 // Unknown parameters do not affect processing, signing or cache identity.
-func filterQuery(raw string) (string, bool, error) {
+func filterQuery(raw string) (string, error) {
 	for i := range len(raw) {
 		c := raw[i]
 		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
 			strings.ContainsRune("-._~!$&'()*+,;=:@/?%", rune(c))) {
-			return "", false, fmt.Errorf("invalid query character")
+			return "", fmt.Errorf("invalid query character")
 		}
 	}
 	if _, err := url.ParseQuery(raw); err != nil {
-		return "", false, err
+		return "", err
 	}
-	return raw, false, nil
+	return raw, nil
 }
 
 // collapseSlashes preserves all path segments, including dots and a trailing

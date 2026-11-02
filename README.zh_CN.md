@@ -1026,7 +1026,7 @@ bright,20/contrast,20 [ 0,  83, 179, 255, 255]
 参数错误，全部 400 带 OSS 信封：`image/info,x_1`、`image/format`、
 `image/format,tga`、`image/info/format,avif`、`image/resize,w_100`、`video/info`。
 
-`go test ./internal/...` 覆盖语法、路径解析器、头部解析器、缓存驱逐器、
+`go test ./...` 覆盖语法、路径解析器、头部解析器、缓存驱逐器、
 水印提供者的缓存规则、签名和 info 回退。这些包中的大多数是纯逻辑，
 不需要 libvips，这是有意为之——参见下面关于 `Validate` 与 `CheckEncoders` 的说明。
 
@@ -1154,4 +1154,8 @@ docker buildx build --target source-export \
 `IXOSS_STRIP_METADATA` 和 `IXOSS_STRIP_COLOR_PROFILE` 均默认为 `true`。
 无处理参数的原图始终保留原始字节，可能含 EXIF/GPS。
 磁盘缓存通过一次原子写入保存摘要头与图像，命中时读取保存的强 ETag，
-不重新计算整图哈希。旧缓存视为未命中；处理设置参与缓存身份，容量计入摘要头。
+不重新计算整图哈希。旧缓存视为未命中；处理设置和 libvips 编码器设置参与缓存身份，
+容量计入摘要头。升级或修改配置后可能留下不再使用的缓存文件。
+`IXOSS_CACHE_MAX_BYTES` 和 `IXOSS_CACHE_MAX_AGE_HOURS` 默认都为 `0`，不会自动淘汰。
+未开启淘汰时，如需回收空间，应停止所有共享该缓存目录的实例，再手动清空专用缓存目录；
+源图片必须存放在独立目录。开启淘汰后，旧条目可按容量或时间限制清理。

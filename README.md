@@ -1154,7 +1154,7 @@ Argument errors, all 400 with an OSS envelope: `image/info,x_1`,
 `image/format`, `image/format,tga`, `image/info/format,avif`,
 `image/resize,w_100`, `video/info`.
 
-`go test ./internal/...` covers the grammar, the path resolver, the header
+`go test ./...` covers the grammar, the path resolver, the header
 parsers, the cache evictor, the watermark provider's caching rule, the signature
 and the info fallbacks. Most of those packages are pure logic and need no
 libvips, which is deliberate — see the note on `Validate` vs `CheckEncoders`
@@ -1307,6 +1307,12 @@ identity shortcut on cache misses and retains all original metadata.
 
 Processed cache files atomically store a SHA-256 digest followed by image bytes.
 Cache hits read the saved digest for strong ETags; they do not rehash the image.
-The format and processing settings are part of cache identity. Old cache files
-are ignored and can be removed by normal eviction. The cache size limit counts
+The format, processing settings and libvips encoder settings are part of cache
+identity. Upgrades or configuration changes can leave cache files that are no
+longer used. Eviction is disabled by default: both `IXOSS_CACHE_MAX_BYTES` and
+`IXOSS_CACHE_MAX_AGE_HOURS` default to `0`. When eviction is not enabled, stop
+all instances sharing the cache directory and manually clear that dedicated
+cache directory after an upgrade or configuration change to reclaim disk space.
+Keep source images separate. When enabled, normal eviction can remove obsolete
+entries according to its size/age limits. The cache size limit counts
 the digest header as well as the image.

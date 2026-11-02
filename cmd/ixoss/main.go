@@ -58,6 +58,16 @@ func main() {
 	}
 }
 
+// cacheVariant includes pipeline and encoder configuration so restarts cannot
+// reuse output produced with different settings.
+func cacheVariant(pc processing.Config, vc vips.Config) (string, error) {
+	variant, err := json.Marshal(struct {
+		Processing processing.Config
+		Vips       vips.Config
+	}{Processing: pc, Vips: vc})
+	return string(variant), err
+}
+
 func run() error {
 	root := env("IXOSS_ROOT", "")
 	if root == "" {
@@ -95,11 +105,11 @@ func run() error {
 	}
 	hc := httpserver.NewDefaultConfig()
 	hc.AllowOriginalPassthrough = !pc.StripMetadata && !pc.StripColorProfile
-	variant, err := json.Marshal(pc)
+	variant, err := cacheVariant(pc, vc)
 	if err != nil {
 		return err
 	}
-	hc.CacheVariant = string(variant)
+	hc.CacheVariant = variant
 	hc.Root = root
 	hc.MaxWatermarkBytes = int64(envInt("IXOSS_MAX_WATERMARK_BYTES", int(hc.MaxWatermarkBytes)))
 	hc.WatermarkCacheBytes = int64(envInt("IXOSS_WATERMARK_CACHE_BYTES", int(hc.WatermarkCacheBytes)))
