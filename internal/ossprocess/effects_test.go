@@ -558,3 +558,44 @@ func TestWatermarkFontLengthBounded(t *testing.T) {
 		t.Errorf("a font of %d bytes was accepted, cap is %d", maxFontBytes+1, maxFontBytes)
 	}
 }
+
+// Text watermarks are capped at 14 columns: 7 wide (CJK) characters or 14
+// others, in any mix. The cap is checked on the decoded text, before Pango.
+func TestWatermarkTextWidthLimit(t *testing.T) {
+	// parseWatermark runs during Validate, as in TestWatermarkFontLengthBounded.
+	parse := func(text string) error {
+		c, err := Parse("image/watermark,text_" + b64url(text))
+		if err != nil {
+			return err
+		}
+		return c.Validate()
+	}
+	for _, ok := range []string{
+		"版权所有禁止转",         // 7 CJK
+		"©iXoSS2026 abc",  // 14 others
+		"版权 iXoSS 012",    // 2 CJK + 10 others = 14
+		"ひらがなカタカ",         // 7 kana
+		"한국어워터마",          // 6 Hangul syllables
+		"ＡＢＣＤＥＦＧ",         // 7 fullwidth
+		"\u2067abc\u2069", // bidi isolates count one column each
+	} {
+		if err := parse(ok); err != nil {
+			t.Errorf("%q was refused: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{
+		"版权所有禁止转载",        // 8 CJK
+		"©iXoSS2026 abcd", // 15 others
+		"版权 iXoSS 0123",   // 2 CJK + 11 others = 15
+		"😀😀😀😀😀😀😀😀",        // 8 emoji
+		strings.Repeat("\u2066", 15),
+	} {
+		err := parse(bad)
+		if err == nil || !strings.Contains(err.Error(), "limit is 14") {
+			t.Errorf("%q: error = %v, want the 14-column limit", bad, err)
+		}
+	}
+	if err := parse("\xff\xfe"); err == nil || !strings.Contains(err.Error(), "UTF-8") {
+		t.Errorf("invalid UTF-8: error = %v, want a UTF-8 error", err)
+	}
+}

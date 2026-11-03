@@ -238,7 +238,7 @@ parameter OSS documents is accepted.
 | | |
 |---|---|
 | `image_` | base64url of an object key |
-| `text_` | base64url of the text |
+| `text_` | base64url of UTF-8 text, at most 7 CJK or 14 other characters |
 | `t_0..100` | opacity, default 100 |
 | `g_` | anchor, default `se` |
 | `x_`/`y_0..4096` | offset from the anchored edges, default 10 |
@@ -264,6 +264,14 @@ Image, text and combined watermarks share a bounded in-memory LRU (64 entries,
 repeated identical requests reuse it, while arbitrary new strings can only
 evict older entries. Text is escaped before Pango rendering, so markup in a
 request cannot override the checked font size.
+
+Watermark text is limited to 14 display columns: an East Asian wide or
+fullwidth character (CJK, kana, Hangul, fullwidth forms, emoji) counts as two,
+any other character as one. That allows 7 Chinese characters, 14 Latin ones,
+or a mix such as `版权 iXoSS 012`. Longer or non-UTF-8 text is a `400
+InvalidArgument`. Pango and its bidi pass (fribidi) run in cgo where
+`IXOSS_PROCESS_TIMEOUT_MS` cannot interrupt them, so the cap keeps their work
+fixed rather than proportional to the request.
 
 Combinations that cannot all be honoured are refused rather than half-applied:
 `y_` with `voffset_` (both are the vertical offset), `g_`/`x_`/`y_` with
@@ -528,8 +536,8 @@ decoded.
 
 The pixel budget covers `text_` too, and has to: `text_`, `size_` and `rotate_`
 are free request parameters, so the canvas a text watermark produces is bounded
-by no file at all. `text_<30 chars>,size_1000` used to be served, at 350 MB of
-RSS, and `text_<20 chars>,size_1000,rotate_45` was refused by the pipeline only
+by no file at all. Before the text cap, `text_<30 chars>,size_1000` was
+served at 350 MB of RSS, and `text_<20 chars>,size_1000,rotate_45` was refused by the pipeline only
 *after* spending 598 MB — a refusal that costs more than the work it refuses is
 not a limit. The budget is now applied before the render (from a deliberate
 under-estimate of the canvas, so it never refuses text that would have fitted),

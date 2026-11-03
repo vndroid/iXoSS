@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/vndroid/iXoSS/internal/options"
 	"github.com/vndroid/iXoSS/internal/options/keys"
@@ -135,7 +136,12 @@ func parseWatermark(a Action) (*Watermark, error) {
 		case "image":
 			w.Path, err = decodeOSSKey(p, "image")
 		case "text":
-			w.Text, err = decodeOSSKey(p, "text")
+			if w.Text, err = decodeOSSKey(p, "text"); err == nil {
+				// Pango and its bidi pass (fribidi) run in cgo, out of reach of
+				// ProcessTimeout, and their cost grows with the text. A short
+				// cap keeps that cost fixed.
+				err = checkTextWidth(w.Text)
+			}
 		case "type":
 			var name string
 			if name, err = decodeOSSKey(p, "type"); err == nil {
@@ -271,6 +277,55 @@ func checkFontLen(name string) error {
 		return fmt.Errorf("\"watermark\" type is %d bytes, limit is %d", len(name), maxFontBytes)
 	}
 	return nil
+}
+
+// maxTextColumns bounds a text watermark's display width: 7 East Asian wide
+// characters or 14 others, in any mix (a wide character counts as two).
+const maxTextColumns = 14
+
+func checkTextWidth(text string) error {
+	if !utf8.ValidString(text) {
+		return fmt.Errorf("\"watermark\" text must be UTF-8")
+	}
+	columns := 0
+	for _, r := range text {
+		columns++
+		if isWideRune(r) {
+			columns++
+		}
+	}
+	if columns > maxTextColumns {
+		return fmt.Errorf("\"watermark\" text is %d columns wide, limit is %d "+
+			"(7 CJK or 14 other characters)", columns, maxTextColumns)
+	}
+	return nil
+}
+
+// isWideRune reports the East Asian Wide and Fullwidth ranges: CJK, kana,
+// Hangul, Yi, fullwidth forms and the common emoji blocks. Every other rune,
+// including combining and format characters, counts as one column, so the
+// rune count can never exceed the cap.
+func isWideRune(r rune) bool {
+	switch {
+	case r >= 0x1100 && r <= 0x115F, // Hangul Jamo initials
+		r >= 0x2E80 && r <= 0x303E,   // CJK radicals, Kangxi, CJK punctuation
+		r >= 0x3041 && r <= 0x33FF,   // kana, Bopomofo, Hangul compatibility, CJK enclosed
+		r >= 0x3400 && r <= 0x4DBF,   // CJK Extension A
+		r >= 0x4E00 && r <= 0x9FFF,   // CJK Unified Ideographs
+		r >= 0xA000 && r <= 0xA4CF,   // Yi
+		r >= 0xA960 && r <= 0xA97F,   // Hangul Jamo Extended-A
+		r >= 0xAC00 && r <= 0xD7A3,   // Hangul syllables
+		r >= 0xF900 && r <= 0xFAFF,   // CJK compatibility ideographs
+		r >= 0xFE10 && r <= 0xFE19,   // vertical forms
+		r >= 0xFE30 && r <= 0xFE6F,   // CJK compatibility and small forms
+		r >= 0xFF00 && r <= 0xFF60,   // fullwidth ASCII and punctuation
+		r >= 0xFFE0 && r <= 0xFFE6,   // fullwidth signs
+		r >= 0x1F300 && r <= 0x1F64F, // emoji: pictographs and emoticons
+		r >= 0x1F900 && r <= 0x1F9FF, // emoji: supplemental symbols
+		r >= 0x20000 && r <= 0x3FFFD: // CJK Extensions B and later
+		return true
+	}
+	return false
 }
 
 // resolveFont turns OSS's font identifier into a Pango font family list.
