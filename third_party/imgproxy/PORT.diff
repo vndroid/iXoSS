@@ -1025,15 +1025,84 @@
 +}
 --- upstream/vips/bmpload.c
 +++ internal/vips/bmpload.c
-@@ -690 +690,2 @@
+@@ -9,0 +10,10 @@
++#include <limits.h>
++
++// Maximum width/height of a BMP image. This bounds all the row size arithmetic
++// (width * 4 + 4 etc.) so it cannot overflow a signed 32-bit integer.
++// It also keeps the bottom-up height within vips_sequential's "tile_height"
++// maximum (1000000); GLib silently ignores bigger values.
++#define BMP_MAX_DIMENSION 1000000
++
++// Maximum number of pixels in a BMP image (the same limit we use for GIF).
++#define BMP_MAX_PIXELS ((int64_t) (INT_MAX / 4))
+@@ -217,0 +228,6 @@
++  // -INT32_MIN will overflow
++  if (height == INT32_MIN) {
++    vips_error("vips_foreign_load_bmp_header", "unsupported BMP image dimensions");
++    return -1;
++  }
++
+@@ -223 +239,4 @@
+-  if ((width <= 0) || (height <= 0)) {
++  if (
++      (width <= 0) || (height <= 0) ||
++      (width > BMP_MAX_DIMENSION) || (height > BMP_MAX_DIMENSION) ||
++      ((int64_t) width * (int64_t) height > BMP_MAX_PIXELS)) {
+@@ -378 +397 @@
+-  int row_size = (bmp->bytes_per_pixel * r->width + 3) & (~3);
++  size_t row_size = ((size_t) bmp->bytes_per_pixel * r->width + 3) & (~(size_t) 3);
+@@ -419 +438 @@
+-  int row_size = (bmp->bytes_per_pixel * r->width + 3) & (~3);
++  size_t row_size = ((size_t) bmp->bytes_per_pixel * r->width + 3) & (~(size_t) 3);
+@@ -500 +519 @@
+-  int row_size = ((r->width + cap - 1) / cap + 3) & (~3);
++  size_t row_size = ((size_t) (r->width + cap - 1) / cap + 3) & (~(size_t) 3);
+@@ -573 +592 @@
+-          bmp->dy = G_MAXUINT32; // set dy to max, so all the leftover lines will be skipped
++          bmp->dy = INT_MAX; // set dy to max, so all the leftover lines will be skipped
+@@ -651,10 +670,10 @@
+-  g_assert(r->left == 0);                                 // Strip starts at the left edge of the image
+-  g_assert(r->width == out_region->im->Xsize);            // Has width of the image
+-  g_assert(VIPS_RECT_BOTTOM(r) <= out_region->im->Ysize); // Equals or less of image height
+-
+-  // Equals to the maximum height of the strip or less (last strip)
+-  if (bmp->top_down)
+-    g_assert(r->height ==
+-        VIPS_MIN(VIPS__FATSTRIP_HEIGHT, out_region->im->Ysize - r->top));
+-  else
+-    g_assert(r->height == out_region->im->Ysize);
++  if (r->left != 0 ||                                // Strip starts at the left edge of the image
++      r->width != out_region->im->Xsize ||           // Has width of the image
++      VIPS_RECT_BOTTOM(r) > out_region->im->Ysize || // Equals or less of image height
++      r->height != (bmp->top_down
++                           // Equals to the maximum height of the strip or less (last strip)
++                           ? VIPS_MIN(VIPS__FATSTRIP_HEIGHT, out_region->im->Ysize - r->top)
++                           : out_region->im->Ysize)) {
++    vips_error("vips_foreign_load_bmp_generate", "unexpected strip geometry");
++    return -1;
++  }
+@@ -690,4 +709,6 @@
 -  // 255 bytes, and our buffer is smaller than that, we need it to be at least 255 bytes.
-+  // 255 bytes, and our buffer is smaller than that, we need it to be at least 256 bytes
-+  // (255 bytes + 1 byte of padding).
-@@ -692,2 +693,2 @@
+-  int row_buffer_length = (bmp->width * 4) + 4;
 -  if (row_buffer_length < 255) {
 -    row_buffer_length = 255;
++  // 255 bytes, and our buffer is smaller than that, we need it to be at least 256 bytes
++  // (255 bytes + 1 byte of padding).
++  // Width is validated in the header (see BMP_MAX_DIMENSION), so this can't overflow.
++  size_t row_buffer_length = ((size_t) bmp->width * 4) + 4;
 +  if (row_buffer_length < 256) {
 +    row_buffer_length = 256;
+@@ -712,0 +734 @@
++      // Ysize <= BMP_MAX_DIMENSION is checked in the header.
+--- upstream/vips/bmpsave.c
++++ internal/vips/bmpsave.c
+@@ -197 +197,4 @@
+-    vips_target_write(bmp->target, gs_palette, BMP_GS_PALETTE_SIZE);
++    if (vips_target_write(bmp->target, gs_palette, BMP_GS_PALETTE_SIZE) < 0) {
++      vips_error("vips_foreign_save_bmp_build", "unable to write BMP palette to target");
++      return -1;
++    }
 --- upstream/vips/config.go
 +++ internal/vips/config.go
 @@ -8 +8,3 @@
@@ -1205,7 +1274,8 @@
 +	regexp.MustCompile(`(?m)^heif: (Invalid input|Unsupported feature|Unsupported file-?type)`),
 --- upstream/vips/icoload.c
 +++ internal/vips/icoload.c
-@@ -11,7 +11,3 @@
+@@ -10,8 +10,5 @@
+-
 -// Maximum size of an ICO entry data block.
 -// Maximum image size in ICO is 256x256 pixels,
 -// which gives a maximum of 256 * 256 * 4 bytes for raw RGBA data.
@@ -1213,33 +1283,107 @@
 -// even if an embedded PNG contains metadata.
 -// Data blocks larger than this should be considered malicious.
 -#define MAX_ICO_ENTRY_DATA_SIZE 10 * 1024 * 1024
++#include <string.h>
++
 +// ICO entries are at most 256x256 pixels. Allow metadata in embedded PNGs,
 +// but reject oversized declarations before allocation (imgproxy a821b6a).
 +#define MAX_ICO_ENTRY_DATA_SIZE (10 * 1024 * 1024)
-@@ -99 +95,2 @@
+@@ -99 +96,2 @@
 -  VIPS_FREE(user_data);
 +  (void) self;
 +  g_free(user_data);
-@@ -164 +160,0 @@
+@@ -164 +161,0 @@
 -  // Check if the data size exceeds the maximum allowed ICO entry data size.
-@@ -178 +173,0 @@
+@@ -178 +174,0 @@
 -
-@@ -181,0 +177 @@
+@@ -181,0 +178 @@
 +    g_free(data);
-@@ -183 +178,0 @@
+@@ -183 +179,0 @@
 -    VIPS_FREE(data);
-@@ -197 +192 @@
+@@ -197 +193 @@
 -      VIPS_FREE(data);
 +      g_free(data);
-@@ -207 +202,2 @@
+@@ -207 +203,2 @@
 -    // Ensure the data buffer is large enough to contain the BMP header.
 +    // Check the payload, excluding our prepended file header (imgproxy
 +    // 39fd9e8). The following reads require a complete BITMAPINFOHEADER.
-@@ -208,0 +205 @@
+@@ -208,0 +206 @@
 +      g_free(data);
-@@ -210 +206,0 @@
+@@ -210,8 +208,27 @@
 -      VIPS_FREE(data);
-@@ -250 +246 @@
+-      return -1;
+-    }
+-
+-    // Read num_colors and bpp from the BITMAPINFOHEADER
+-    uint32_t num_colors = GUINT32_FROM_LE(*(uint32_t *) (actual_data + 32));
+-    uint16_t bpp = GUINT16_FROM_LE(*(uint16_t *) (actual_data + 14));
+-    uint32_t pix_offset;
++      return -1;
++    }
++
++    // The BMP header reconstruction below assumes a plain BITMAPINFOHEADER
++    uint32_t info_header_len;
++    memcpy(&info_header_len, (uint8_t *) actual_data, sizeof(info_header_len));
++
++    if (GUINT32_FROM_LE(info_header_len) != BMP_BITMAP_INFO_HEADER_LEN) {
++      vips_error("vips_foreign_load_ico_header", "unexpected BMP header length");
++      g_free(data);
++      return -1;
++    }
++
++    // Read height, bpp and num_colors from the BITMAPINFOHEADER.
++    // Use memcpy since the data is not guaranteed to be aligned.
++    int32_t height;
++    uint16_t bpp;
++    uint32_t num_colors;
++    memcpy(&height, (uint8_t *) actual_data + 8, sizeof(height));
++    memcpy(&bpp, (uint8_t *) actual_data + 14, sizeof(bpp));
++    memcpy(&num_colors, (uint8_t *) actual_data + 32, sizeof(num_colors));
++
++    height = GINT32_FROM_LE(height);
++    bpp = GUINT16_FROM_LE(bpp);
++    num_colors = GUINT32_FROM_LE(num_colors);
++
++    uint64_t palette_colors;
+@@ -221 +238 @@
+-      pix_offset = BMP_FILE_HEADER_LEN + BMP_BITMAP_INFO_HEADER_LEN + 4 * (1 << bpp);
++      palette_colors = (uint64_t) 1 << bpp;
+@@ -225 +242,16 @@
+-      pix_offset = BMP_FILE_HEADER_LEN + BMP_BITMAP_INFO_HEADER_LEN + 4 * num_colors;
++      palette_colors = num_colors;
++    }
++
++    // The palette must fit into the data we have
++    if (palette_colors > 256 && bpp <= 8) {
++      vips_error("vips_foreign_load_ico_header", "invalid BMP palette size");
++      g_free(data);
++      return -1;
++    }
++
++    uint64_t pix_offset = BMP_FILE_HEADER_LEN + BMP_BITMAP_INFO_HEADER_LEN + 4 * palette_colors;
++
++    if (pix_offset > full_data_size) {
++      vips_error("vips_foreign_load_ico_header", "invalid BMP palette size");
++      g_free(data);
++      return -1;
+@@ -231 +262,0 @@
+-    int32_t height = GINT32_FROM_LE(*(int32_t *) (actual_data + 8));
+@@ -232,0 +264,5 @@
++
++    uint32_t file_size_le = GUINT32_TO_LE(full_data_size);
++    uint32_t reserved = 0;
++    uint32_t pix_offset_le = GUINT32_TO_LE((uint32_t) pix_offset);
++    int32_t height_le = GINT32_TO_LE(height);
+@@ -239,4 +275,4 @@
+-    (*(uint32_t *) (data + 2)) = GUINT32_TO_LE(full_data_size);
+-    (*(uint32_t *) (data + 6)) = 0;                          // reserved
+-    (*(uint32_t *) (data + 10)) = GUINT32_TO_LE(pix_offset); // offset to the pixel data
+-    (*(int32_t *) (actual_data + 8)) = GINT32_TO_LE(height); // height
++    memcpy(data + 2, &file_size_le, sizeof(file_size_le));
++    memcpy(data + 6, &reserved, sizeof(reserved));                      // reserved
++    memcpy(data + 10, &pix_offset_le, sizeof(pix_offset_le));           // offset to the pixel data
++    memcpy((uint8_t *) actual_data + 8, &height_le, sizeof(height_le)); // height
+@@ -250 +286 @@
 -      VIPS_FREE(data);
 +      g_free(data);
 --- upstream/vips/options.go
@@ -1298,6 +1442,17 @@
 +  gboolean PngUnlimited;  // Whether to disable vips_pngload limits.
 +  gboolean SvgUnlimited;  // Whether to disable vips_svgload limits.
 +  gboolean TiffUnlimited; // Whether to disable vips_tiffload limits.
+--- upstream/vips/source.go
++++ internal/vips/source.go
+@@ -60,0 +61,4 @@
++	if size <= 0 {
++		return 0
++	}
++
+@@ -64 +68,2 @@
+-		return 0
++		// Read may return both n > 0 and io.EOF: don't drop the data we've got
++		return C.int64_t(n)
 --- upstream/vips/vips.c
 +++ internal/vips/vips.c
 @@ -6,0 +7,7 @@
@@ -1926,7 +2081,16 @@
 @@ -347 +455 @@
 -	so := newSaveOptions(o)
 +	so := newSaveOptions(ov)
-@@ -612,0 +721,100 @@
+@@ -527,0 +636,3 @@
++	if size > math.MaxInt32 {
++		return nil, newVipsError("blob is too large")
++	}
+@@ -547,0 +659,4 @@
++	if len(value) == 0 {
++		return
++	}
++
+@@ -612,0 +728,100 @@
 +// AverageHue returns the mean colour of the image, in sRGB.
 +//
 +// It answers OSS's `image/average-hue`. Transparency is weighted rather than
@@ -2027,7 +2191,7 @@
 +	return nil
 +}
 +
-@@ -718,0 +927,33 @@
+@@ -718,0 +934,33 @@
 +// Linear applies out = in*a + b to the colour bands, leaving alpha untouched.
 +//
 +// It is the primitive behind brightness and contrast: both are linear, so a

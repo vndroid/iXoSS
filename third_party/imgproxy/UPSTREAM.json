@@ -6,7 +6,7 @@
     "commit": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c",
     "meaning": "Audited release baseline with ICO security fixes backported; not a claim of unmodified upstream code or exact historical origin."
   },
-  "audit_date": "2026-10-22",
+  "audit_date": "2026-11-03",
   "historical_origin": "Unrecorded; reconstructed as 4.0 release code mixed with master changes and iXoSS modifications.",
   "additional_comparison": {
     "branch": "master",
@@ -40,599 +40,599 @@
     {
       "path": "internal/auximageprovider/provider.go",
       "local_sha256": "3d0f7ca8ad38b1dd870abeedf3adeed14a4e738ebf007d75965d56211a841952",
+      "upstream_path": "auximageprovider/provider.go",
       "upstream_sha256": "f4b7d7c206826eed6db604e007f048f8d2c37a708dda524b7a79424f10774397",
-      "comparison": "modified",
-      "upstream_path": "auximageprovider/provider.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/auximageprovider/static_config.go",
       "local_sha256": "379f5305685a9ead8698461852f8d8db6202e15ce702726e8d6ae12ae07fffdd",
+      "upstream_path": "auximageprovider/static_config.go",
       "upstream_sha256": "61c56cf196c60910a3a0a2b81302201cfc69d9bc8ae8fa6426983d3b3a54d8e9",
-      "comparison": "modified",
-      "upstream_path": "auximageprovider/static_config.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/auximageprovider/static_provider.go",
       "local_sha256": "df342fc45f9098dcd5784668d14da677b195453eb0663c3ce812465682cacc33",
+      "upstream_path": "auximageprovider/static_provider.go",
       "upstream_sha256": "ae9e65c8e8851f859970373cd80daff50762819791e28c03a3e0ed8daec6cdcb",
-      "comparison": "modified",
-      "upstream_path": "auximageprovider/static_provider.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/bufreader/bufreader.go",
       "local_sha256": "03b1a7dd62e562fdf2ab44fe084b90f096b512f8986d864bdfcabd8f83d66a7f",
+      "upstream_path": "bufreader/bufreader.go",
       "upstream_sha256": "52b42701c076dc3c4339c9ce1aa3ac3d9d455a89e7a62499cd9331b4a9082da9",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "bufreader/bufreader.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/ensure/ensure.go",
       "local_sha256": "34fcc7c318172bf1b4d981a7e3f776317148fc75dab1e4732b9ee1a2d4f434a9",
+      "upstream_path": "ensure/ensure.go",
       "upstream_sha256": "c00c843759f2a0683c42a229da994c62f6be79d4470a89717cf6976da7556a04",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "ensure/ensure.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/env/desc.go",
       "local_sha256": "6b07f1db9319b9392b2fc64508d4acb447164950cc1f025de8119d22f6cf2614",
+      "upstream_path": "env/desc.go",
       "upstream_sha256": "b7bf3b0b94b708c872f88a628d34d32a0000a45c2a2080990d014285aa11bbbd",
-      "comparison": "modified",
-      "upstream_path": "env/desc.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/env/parsers.go",
       "local_sha256": "cac64dd2d96ab949c7c64b3230a3c8593aed787f43fe989dc33a38fddb46b80b",
+      "upstream_path": "env/parsers.go",
       "upstream_sha256": "d1ec86089dfd5430c1db28d5c54b90664d9a88bbd9cd999d158376322d72f53f",
-      "comparison": "modified",
-      "upstream_path": "env/parsers.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/env/types.go",
       "local_sha256": "2ee82d12cc18d1bf21634e661e7bf3281396b2666ba9ae0f1426f506f2a20ca6",
+      "upstream_path": "env/types.go",
       "upstream_sha256": "e47177ea4fde042717f492dc5685a57f862f9cd2e83e33641e8c5fe9329be46a",
-      "comparison": "modified",
-      "upstream_path": "env/types.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/errctx/context.go",
       "local_sha256": "63f963157c5b8a1dde4ccb52958c5d7979f0ff44269015a7996b3d346c472a21",
+      "upstream_path": "errctx/context.go",
       "upstream_sha256": "0397754edef4b49dae1a972e763ad8d53753ae8f3e2a7ea3b604fd4e83d8bce6",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "errctx/context.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/errctx/docs_base_url.go",
       "local_sha256": "9dccc2ebd049a7ba28e96d9ffdd927935c88e4dd9f167c0e2da4fb5a594636b7",
+      "upstream_path": "errctx/docs_base_url.go",
       "upstream_sha256": "eede3328ed455fc1c36da2a84717e726bc04a4386541648663114b7bc320a105",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "errctx/docs_base_url.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/errctx/error.go",
       "local_sha256": "e110b1aa77f5f9e3846242b91d7a8c6303d6b903facc2062a3571142ff818f54",
+      "upstream_path": "errctx/error.go",
       "upstream_sha256": "c62b3fed6ae2fd84d28c731173985f4b5b9f868bbfb75d051e4c4aabe20e7b46",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "errctx/error.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/errctx/options.go",
       "local_sha256": "727d9cf2742d23282b74314fdb7cd4505a7bd4cf373fb78a0f40b22c11aad063",
+      "upstream_path": "errctx/options.go",
       "upstream_sha256": "bc291beaf8c9f365173f18d4c41db68f11ee945ba03026a94305d8d37e71c955",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "errctx/options.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/errctx/text_error.go",
       "local_sha256": "613e2f799035648821579faa365c21638c128493a8a03053624ec44ada124c3e",
+      "upstream_path": "errctx/text_error.go",
       "upstream_sha256": "c4f48ed6ec8f26281cb80dd22c9207ed636e6f4575af66f31bd9748fc4d6c2b8",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "errctx/text_error.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/errctx/wrapped_error.go",
       "local_sha256": "1640f92c63155def8b2ecdc63489d1ef3cf7045d840d3835d9e790b94c882d27",
+      "upstream_path": "errctx/wrapped_error.go",
       "upstream_sha256": "e6a1eb72d2af228ac35e473a67688ef386adc0a78ae651aa26751115acf6a2af",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "errctx/wrapped_error.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagemeta/iptc/errors.go",
       "local_sha256": "60823f03c4173913a75c3065b3ba8151f092b07e8da8861540e7bf42a3e9cb35",
+      "upstream_path": "imagemeta/iptc/errors.go",
       "upstream_sha256": "80294f6d2908231281dbbefb6cd62815788665f3cf34c47cb51d718fb9a8d3a6",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagemeta/iptc/errors.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagemeta/iptc/iptc.go",
       "local_sha256": "fbe3b3e84a009f2fc91873eb6c08bc55cc02d0d3443933e8df203e8fa8e3c6cb",
+      "upstream_path": "imagemeta/iptc/iptc.go",
       "upstream_sha256": "e5f9132a91ebb346f8ba24427c1a8d4574dc554480c817b2a500a4643b15189f",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagemeta/iptc/iptc.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagemeta/iptc/tags.go",
       "local_sha256": "61ead552010f7ef6f3c0ad03ddef94ae5043c1edadd4af0c1a106fecc3ede086",
+      "upstream_path": "imagemeta/iptc/tags.go",
       "upstream_sha256": "ad90fe9dec408d0133da40bc95fcf4b97001f164847239845981c48c2eadf8a2",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagemeta/iptc/tags.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagemeta/photoshop/photoshop.go",
       "local_sha256": "1d6c659758967fcc8f50598a2693a842d0a9de38b120b88fead6224d01b18cc3",
+      "upstream_path": "imagemeta/photoshop/photoshop.go",
       "upstream_sha256": "2c1c7706d927bbde657916728361faef22779223a27d78dc37c422a4f951650a",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagemeta/photoshop/photoshop.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagetype/defs.go",
       "local_sha256": "d9ced0529ce01ed056147eabe34070f15f00a606dd3ec20c4e59e6e9199b6922",
+      "upstream_path": "imagetype/defs.go",
       "upstream_sha256": "d6688ca43b8e972e4d727daadbf8fa387d6178dc13ab54e87bf7389249957061",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagetype/defs.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagetype/errors.go",
       "local_sha256": "77f163f2da8a94370318d42c6e68a5ff7232a282d82c43d88dd2ea51388b0b00",
+      "upstream_path": "imagetype/errors.go",
       "upstream_sha256": "99e4fcfbbefc7904716a0e26fb159fe8ab5f057af2bf1f24019d9758852d9fac",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagetype/errors.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagetype/raw.go",
       "local_sha256": "5c3cae5d320db7e7425ce3a8a5b04cca6823e8bca9f213685bc7a93a751e271d",
+      "upstream_path": "imagetype/raw.go",
       "upstream_sha256": "253ff9f0047c56d0da9d363ff402bbbccc6ef8d8df07e818eff45c55fba323c9",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagetype/raw.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagetype/registry.go",
       "local_sha256": "4b720de1a109ea35af968f1608ab5096c48c0649d54a1cebaa425e09ca5b138b",
+      "upstream_path": "imagetype/registry.go",
       "upstream_sha256": "08b8f1102492e470dacbf3beedda2df1d194c4578fdaa390a7583e98102cf457",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagetype/registry.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagetype/tiff.go",
       "local_sha256": "24340f267e17edd6eb5a6c860b93a4a788d72b7e93cc525d0f29d2948e80e860",
+      "upstream_path": "imagetype/tiff.go",
       "upstream_sha256": "4ffcffff20b222ef7cf16c5ecadb85282bae4a4b26b5a46080edfa4d413d520e",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imagetype/tiff.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/imagetype/type.go",
       "local_sha256": "f5542ba92ca6fdf4f1aeb5144741d1cd78e79c4e01c5637f8a266b8771adb82b",
+      "upstream_path": "imagetype/type.go",
       "upstream_sha256": "fe1e7d0b228893b51a9df707ec1b14d4d9a13eff36607644f286d8b12d236133",
-      "comparison": "modified",
-      "upstream_path": "imagetype/type.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/imath/imath.go",
       "local_sha256": "3a0fca245ec4f8021b2fb8f78affc28d58b0bb78a3359b34c782378575b6a5a0",
+      "upstream_path": "imath/imath.go",
       "upstream_sha256": "528f5eae7f3ad64076ecd6de962162af951fe5e423c375c1fb3e0bd41794f700",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "imath/imath.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/ioutil/ioutil.go",
       "local_sha256": "e31d5c9703753ca7d98359a1d0c8de0fc36be082f8f0c10359bc517e26266f9e",
+      "upstream_path": "ioutil/ioutil.go",
       "upstream_sha256": "6eeb91e73afe7f48a7d973f3246da560c732832dc1682c8998a497356a021618",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "ioutil/ioutil.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/options/errors.go",
       "local_sha256": "ea3b74de4ab8121632a59e31d23b6ebaaf14901c949e817bee88bc7146ad2c05",
+      "upstream_path": "options/errors.go",
       "upstream_sha256": "ed972e2b255f7ca400e1fb79396925cb64af4dcd572951de1b15db82deda09d7",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "options/errors.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/options/keys/keys.go",
       "local_sha256": "962f876faad4802bb94394b33d93137e5f7843c5f99f0536f6464e431fa6cc00",
+      "upstream_path": "options/keys/keys.go",
       "upstream_sha256": "7aa6b9e8c751a8514c2de6d862f7aba9105a41af0056d453878c3495608e847e",
-      "comparison": "modified",
-      "upstream_path": "options/keys/keys.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/options/options.go",
       "local_sha256": "f466a2be95d5d0ffe9aea9fd421ebcb57d5c8bd508c6eaf4cecd4fbbe398ab4f",
+      "upstream_path": "options/options.go",
       "upstream_sha256": "c24c20acca8e95fb4ed430066ddf4701f5998c1199e24db50f28f9764e24b9ec",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "options/options.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/adjust.go",
       "local_sha256": "18b91a53fd9d9eac0386a75027bc7f26e013a99a0320e9c8e6f55b82dc088b4b",
-      "comparison": "local_only",
-      "upstream_path": null
+      "upstream_path": null,
+      "comparison": "local_only"
     },
     {
       "path": "internal/processing/apply_filters.go",
       "local_sha256": "9563e88ede7c7a3705f5b1e6f61a9ba4391b547a80ea26459a4768b464a3ba7e",
+      "upstream_path": "processing/apply_filters.go",
       "upstream_sha256": "4e02451257543794ce3999dd636518e24fb5a2a4edf3dbd2a6725818aec73582",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/apply_filters.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/calc_position.go",
       "local_sha256": "94dbf412626acb84fbad28cd61137dc69326274f7e708ab92151ab646b403ea1",
+      "upstream_path": "processing/calc_position.go",
       "upstream_sha256": "1ae0fd9ff969d9b64d033dae26f9b69bec6e767a4662bd7aead227263d42f883",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/calc_position.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/colorspace_to_processing.go",
       "local_sha256": "dff164117d5de32a76225a250419d9afd451ad0def32de7b6eca905bc70e3f07",
+      "upstream_path": "processing/colorspace_to_processing.go",
       "upstream_sha256": "856d5392d178f70db02b3876b78614d0072fc7293e91f74b191eca42adafca44",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/colorspace_to_processing.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/colorspace_to_result.go",
       "local_sha256": "113b530a9a45acc760b948cc503268c0e5fa68b9ac4ab5fa54fde7a37fde8b4f",
+      "upstream_path": "processing/colorspace_to_result.go",
       "upstream_sha256": "aa975ee0da7e276222ee7373b69c9ca5b9cb9fcc3817db62e3f6697b8e0320b4",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/colorspace_to_result.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/config.go",
       "local_sha256": "d8c5146206dce205514d65e771f848091cf43e0e709eaf2776f2b7984bb2d405",
+      "upstream_path": "processing/config.go",
       "upstream_sha256": "ad23d989f3bff523abbb1c11c8de1d610c93f3b5de8aeba21a07ba35c6c7c495",
-      "comparison": "modified",
-      "upstream_path": "processing/config.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/crop.go",
       "local_sha256": "2cbdd7da43ffef9b2ca133abe4f29f57625cc2def58574cbd6c187848f02275e",
+      "upstream_path": "processing/crop.go",
       "upstream_sha256": "db4b95afc8f4da10ff59e97884128458b503b981058631b2134e2bf502319147",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/crop.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/errors.go",
       "local_sha256": "c2ad2b94a46fc48cb4b31ce192c00c134b134ee4970a43b60fda2b1bbee84a29",
+      "upstream_path": "processing/errors.go",
       "upstream_sha256": "2257dce492f5fa6bbeaec00e6c9efa8919c6d2a642c8e2bc91200dbffa73df65",
-      "comparison": "modified",
-      "upstream_path": "processing/errors.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/extend.go",
       "local_sha256": "5192feb7334fea050d307a8d6fb2334ae3972a3abcdc13f4eaa2c9d4a4a1cee1",
+      "upstream_path": "processing/extend.go",
       "upstream_sha256": "f3aa03659f68d1f76d8aed0d4c2da653096dad40e9a3b4710c7dae46fa61cf25",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/extend.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/fix_size.go",
       "local_sha256": "0ef47347e3284b427a2f282da51ef966bc6ef320cae9ee92294bcb089c60c61b",
+      "upstream_path": "processing/fix_size.go",
       "upstream_sha256": "a552bc9d822a7d7489b0dade1fae98ba386cb088f5e265c280eba26dc6ce44f0",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/fix_size.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/flatten.go",
       "local_sha256": "89f385945f63333b74a7bd32eba0573b1ef0c0bb2fc96f8a275136b8bdf285c3",
+      "upstream_path": "processing/flatten.go",
       "upstream_sha256": "c4598626132d32395dc06595e914956da42b0e929d8c95b4aa5827a43fc84478",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/flatten.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/gravity.go",
       "local_sha256": "219c14549626be5eb427868338bdf182ac39d5998faea8e4e3b2b1fd3dc5584b",
+      "upstream_path": "processing/gravity.go",
       "upstream_sha256": "4c64cf9ddaf52d5727f07683dc119960ee6c28b1d557663743500f116d3201b0",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/gravity.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/gravity_type.go",
       "local_sha256": "481c204ceb5689a629f36e991a232a7c1202479ec4b82f0babb533581c9698eb",
+      "upstream_path": "processing/gravity_type.go",
       "upstream_sha256": "b9fbcffbd09526f816bffb7a0fdf50abd35030c0e89551daf3ab6bc4e6f9260d",
-      "comparison": "modified",
-      "upstream_path": "processing/gravity_type.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/options.go",
       "local_sha256": "6c92249304989743249a299b714cbca330761b0c5c958c1a51bc272565777fa8",
+      "upstream_path": "processing/options.go",
       "upstream_sha256": "bb80845fcd49a8557c1b73add8e832e2927f3a2fbbd12009c60848a752423bb3",
-      "comparison": "modified",
-      "upstream_path": "processing/options.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/padding.go",
       "local_sha256": "1535a0d795109b27a6290076ff7c96b2fd7695fa851aaa9769c72490fb8559af",
+      "upstream_path": "processing/padding.go",
       "upstream_sha256": "01a4cb4a4db2175db66d33cc437cce2df3ec5c3b69f9be45c5e251bd706dd92f",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/padding.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/pipeline.go",
       "local_sha256": "e52902cd3741e6f4f07d8c325d16841fa502e2265e890c8a99a45d446e07bcc8",
+      "upstream_path": "processing/pipeline.go",
       "upstream_sha256": "c28307136d4495aa3611dc859de7b46f001c2e131e8919ece305f2ae48d44ad5",
-      "comparison": "modified",
-      "upstream_path": "processing/pipeline.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/prepare.go",
       "local_sha256": "1bd36101181fdf336e018278f58d84cb73dcd67733fafdf1f6dd06a54ad0b927",
+      "upstream_path": "processing/prepare.go",
       "upstream_sha256": "65ad789639663301f9ab1a8e41c5163d5b91879cfc5b62ec36b341f97fd40832",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/prepare.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/processing.go",
       "local_sha256": "403b6b4e1c31317ae22e8476367f7f06b1881c918e65c6b0d33e1c1e7e18587f",
+      "upstream_path": "processing/processing.go",
       "upstream_sha256": "1191ba6363b4c7f6d48a01a03cbda7a00d09975e3aa1ba23fcc49ad1fe21aa59",
-      "comparison": "modified",
-      "upstream_path": "processing/processing.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/processor.go",
       "local_sha256": "6be561cc2faa2405c8461ba42856097cced3f8fbcd3b5126535f985cdede12d7",
+      "upstream_path": "processing/processor.go",
       "upstream_sha256": "cfdc42e4e408514243a4db74dc0cb79663937c2889426f35092642403ef51abe",
-      "comparison": "modified",
-      "upstream_path": "processing/processor.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/resize_type.go",
       "local_sha256": "232cdde3de470718165af5156722310f62a99c9df86794aeab0a21379dee2a9c",
+      "upstream_path": "processing/resize_type.go",
       "upstream_sha256": "a2a6450a6c308489ebb806a070b41beda30f209f6315647498f335bdce6419b4",
-      "comparison": "modified",
-      "upstream_path": "processing/resize_type.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/rotate_and_flip.go",
       "local_sha256": "1d4f2922b3f3eff393504317b8d986c84c4a7c8bd67a63cbc28d3ca2e643447b",
+      "upstream_path": "processing/rotate_and_flip.go",
       "upstream_sha256": "194b92afdb3aa65bbcfb3a5c463b31d4b24cb621299788489911fd782772b891",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/rotate_and_flip.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/rotate_free.go",
       "local_sha256": "403bd31f79697cefad58f9bafe63e595c5bb46e14aeb07634fcdc77647076b60",
-      "comparison": "local_only",
-      "upstream_path": null
+      "upstream_path": null,
+      "comparison": "local_only"
     },
     {
       "path": "internal/processing/round_corners.go",
       "local_sha256": "7584964d5c36e212d680778d481ed48b5563e5bc791de83078137b9b384f836e",
-      "comparison": "local_only",
-      "upstream_path": null
+      "upstream_path": null,
+      "comparison": "local_only"
     },
     {
       "path": "internal/processing/save_fit_bytes.go",
       "local_sha256": "165313fa292b3d2ad651a7e3e2d365a519714ef217499059360814041b486c73",
+      "upstream_path": "processing/save_fit_bytes.go",
       "upstream_sha256": "4a0cf78a220ca00525bdf36a777e92fd40eeb4b310dc7e6b9652ada935c9e4ba",
-      "comparison": "modified",
-      "upstream_path": "processing/save_fit_bytes.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/processing/scale.go",
       "local_sha256": "0a4c9149577582b65bcc706516ea2dc2bd5cfd88bfeffc157e5de284ec2576dc",
+      "upstream_path": "processing/scale.go",
       "upstream_sha256": "021a8681b79e1c76e6eb73446d0665a013a50d678bbac50dcd7b79b3071d182d",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/scale.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/scale_on_load.go",
       "local_sha256": "7c5a1f125afc843464d0ccd7468b4126b1d697780311e06088a4d6a6af604486",
+      "upstream_path": "processing/scale_on_load.go",
       "upstream_sha256": "43af6e8c80ed9d46aeb7067a365db8249dfe92a10a874a925edd5f5d1e347ac2",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/scale_on_load.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/strip_metadata.go",
       "local_sha256": "7c331751f7faf5382bbbd825d3f56c1d59287a912e8b4c925bca6f7921f44214",
+      "upstream_path": "processing/strip_metadata.go",
       "upstream_sha256": "4b808b5ab666aa3dec24b71213156d7fd49f922477d2bd6d9d490366bb2ec7f1",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/strip_metadata.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/trim.go",
       "local_sha256": "f14066d5d3b87c633867b9497a64cedb798c96361940fe375a158834d7d94eb3",
+      "upstream_path": "processing/trim.go",
       "upstream_sha256": "4cd15fad44d11f527697d4845564455f23f73db5eca962f246f7f9a08e6bea09",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/trim.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/vector_guard_scale.go",
       "local_sha256": "54d9c99198f39a20ca0377419538004324f8c748946e17a520241d57203e2ede",
+      "upstream_path": "processing/vector_guard_scale.go",
       "upstream_sha256": "6c38485207134c67570f2c7da7c8ffe08932b3be4533aa73f155258983c39229",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/vector_guard_scale.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/processing/watermark.go",
       "local_sha256": "b7d6bc950f6ad4cf62feb2d684acc9308678011085860fee5b3e238647b48215",
+      "upstream_path": "processing/watermark.go",
       "upstream_sha256": "281a8c8b6d2fb572e10925f7c1dddb815912ba3a3c234a82cc19821039b580ad",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "processing/watermark.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/security/checker.go",
       "local_sha256": "c8b970203b8702b0ed1155aef51b398d4ebc563af7ef15537761a9ba7ab8484e",
+      "upstream_path": "security/checker.go",
       "upstream_sha256": "f69551fc363d62bf31481f1906219472cfe15223bf7e7642fe12101a82f8dd94",
-      "comparison": "modified",
-      "upstream_path": "security/checker.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/security/config.go",
       "local_sha256": "410852430f0e600f3cc13bbeb1f65c49c865edf8b1876621b925ac2346aaa25d",
+      "upstream_path": "security/config.go",
       "upstream_sha256": "f3e874fe68fede4bbe825a137ef8de8c05622f8bb89919abdb925166560fbf8f",
-      "comparison": "modified",
-      "upstream_path": "security/config.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/security/errors.go",
       "local_sha256": "23681d8abea4e16284c57be78b8d51a23ed64d72ce0731c7420d4b06b51004fa",
+      "upstream_path": "security/errors.go",
       "upstream_sha256": "da94c4a9b603be2601fbd885a11ed3d2b18b114c5007327a2e225ac852ff7090",
-      "comparison": "modified",
-      "upstream_path": "security/errors.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/security/signature.go",
       "local_sha256": "6b5c0e8060c9335401bee15fcdfd6c9fb2fb9000d1b5b018148c849e89c2e192",
+      "upstream_path": "security/signature.go",
       "upstream_sha256": "31a72a758f08efb51df0bf385e7d11563dfc9744147c4c9bbca69585cdee864f",
-      "comparison": "modified",
-      "upstream_path": "security/signature.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/bmp.h",
       "local_sha256": "69ba68a7fe9cf8f3eec03e435bc02483976298fa7dc1b4e2b41c9da9b2d4e38d",
+      "upstream_path": "vips/bmp.h",
       "upstream_sha256": "cf7b97b35fd953ec9472b916de4cbed06a014024aef0dc67110494cf2e242d3c",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/bmp.h"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/bmpload.c",
-      "local_sha256": "e648d289e98408a68d65b9ca1dae49a8a41b6879c5b267976c5cfbe77e48a3c6",
+      "local_sha256": "2fffedb426036aefbd6be30b0e358c75535a1ad9bd25a313921b8cf80d1862f0",
+      "upstream_path": "vips/bmpload.c",
       "upstream_sha256": "eb32e091e61c5b8e0129f8bbf92e7407bca5c8e208def820565a874ae43d05d0",
-      "comparison": "modified",
-      "upstream_path": "vips/bmpload.c"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/bmpsave.c",
-      "local_sha256": "8cd0e9192e7f0e70fa49a3d6841b31830c52ec895b71f126021b8dc3d989c2fe",
+      "local_sha256": "c1b84dab72cb7701b036f39cb120fe23fe9ce3694a25edbbd9790bdcc84d126c",
+      "upstream_path": "vips/bmpsave.c",
       "upstream_sha256": "b4595532bc4c3d430d748811e243641cf10d5923cf5a0f9427026d875903252d",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/bmpsave.c"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/cached_c_strings.go",
       "local_sha256": "d44fc2bf90a6554ed9ec4905535b6403bd6afe561f4dbddfccd0e654536feb81",
+      "upstream_path": "vips/cached_c_strings.go",
       "upstream_sha256": "8835eb34bad8c4dbeedb704dee2a87b1717aa73d335a70889ccbbc5031214612",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/cached_c_strings.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/color/color.go",
       "local_sha256": "9548e03f769c0c927d99f5737aaf1981cdfb960ceafeb09a2e8c444ee5573b45",
+      "upstream_path": "vips/color/color.go",
       "upstream_sha256": "e0c990f5e0f517ef374da9a9e55d7f1b01959ae5e7ae112ff1efbab9461a1f84",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/color/color.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/color/errors.go",
       "local_sha256": "cb273ba1f327a0bb88e791e29ac2aa03d47aa88f51ba1b449b597a56476af7a9",
+      "upstream_path": "vips/color/errors.go",
       "upstream_sha256": "3fe7f09a24333ac400689e984d37e8e2076e6a42bf2c28b565587780e059b1f2",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/color/errors.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/config.go",
       "local_sha256": "b67a205c1675748e67779d714607c39d64319e16ec685da9bc0498a089269b43",
+      "upstream_path": "vips/config.go",
       "upstream_sha256": "daedf2446ddf3f11fcb027b831accafe7d4b4ea9df031ded50fd9fc1840c0469",
-      "comparison": "modified",
-      "upstream_path": "vips/config.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/errors.go",
       "local_sha256": "9a5ccbc0e768bfc97782466346e72f0ff34df728de6adafc63657760adf9116c",
+      "upstream_path": "vips/errors.go",
       "upstream_sha256": "a0b7f64e4df37b7d3b0819988baa150a85a6c428fe10c62e13596f33ba8acccd",
-      "comparison": "modified",
-      "upstream_path": "vips/errors.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/ico.h",
       "local_sha256": "fbcb9aa5154ac925316a8f00b62c38456dfd869094358dacd9f62ea738da4bb9",
+      "upstream_path": "vips/ico.h",
       "upstream_sha256": "4cc852aeb436b61f8ec97e44ce912d51fb2a80746ef17e7417257934f1723f99",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/ico.h"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/icoload.c",
-      "local_sha256": "2eb65aa37d94826c8ebbe5a1f7bc9924c0d012eead4966ccec7a9a579e884752",
+      "local_sha256": "cb0dab263ad877f99b7b0247ebf949329b5c730c24153632a9819b6417c913fd",
+      "upstream_path": "vips/icoload.c",
       "upstream_sha256": "f2088e52d2e9db9e534ee5eef9b970d4719b1b8dbcbc1091de9566b5b69655eb",
-      "comparison": "modified",
-      "upstream_path": "vips/icoload.c"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/icosave.c",
       "local_sha256": "924a3e5330df30bb723640bcefd6f2718f1fa6e92e086a3c1dc3421ae3bc3b19",
+      "upstream_path": "vips/icosave.c",
       "upstream_sha256": "6eb4e674d20e380c95c9be51079a8b3df72c3e021acce4a167724c4409052636",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/icosave.c"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/interpretation.go",
       "local_sha256": "deb82ac27bc017447bc9091bd37e82c326af73bf1fd708177d16d7c923262c36",
+      "upstream_path": "vips/interpretation.go",
       "upstream_sha256": "96dabb6c5abf975ffb0ce71a1f078881684146f9b8f62132e1ba1d776a25d41b",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/interpretation.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/options.go",
       "local_sha256": "f0b3b64831c100334b29653e02f25204c9dc7d80ad30ece1d4eb5cc2490686d6",
+      "upstream_path": "vips/options.go",
       "upstream_sha256": "c55e7b91a0d67079241f0e7bcc9dd6fb3e5346017cb644e939198219460ca465",
-      "comparison": "modified",
-      "upstream_path": "vips/options.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/options.h",
       "local_sha256": "3dcc3f97576e30c2cfec7bf6b5221874c94c3c9bb5907d11228aa73f1cf6dd2e",
+      "upstream_path": "vips/options.h",
       "upstream_sha256": "3aa6aa4bd7d5b2d10b806bbf5d89c67745371406c3e277ef7c92928814cdfef1",
-      "comparison": "modified",
-      "upstream_path": "vips/options.h"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/source.c",
       "local_sha256": "c25795a481ee10b05222bbcdd452684d7be724dc1da9bb4473294f75533e7b80",
+      "upstream_path": "vips/source.c",
       "upstream_sha256": "59e4b6dc0826ce2d6b45527ba777b5884946d3220ac2f54015f61b0d29c03697",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/source.c"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/source.go",
-      "local_sha256": "88073261054eb3b1b1852c999f98ee9f1a2989161f30731daf116899762279f9",
+      "local_sha256": "d8841cab28b2ca08de44998812ae62b3f4cd26fb90ddc9fa7818e31bc267b553",
+      "upstream_path": "vips/source.go",
       "upstream_sha256": "9d6ee723e64fe79706350cb88f98ac16181c0afcc907948c76157e4371d22108",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/source.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/source.h",
       "local_sha256": "e9fd3b7eed2a2dde646ca6c3ce1e48d083188d5a691612cc2c11d86af767d6a7",
+      "upstream_path": "vips/source.h",
       "upstream_sha256": "35eb02d2fbe043b6f834aa53b297089fb1603f9b895767e5ea626eac7747e102",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/source.h"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/stats/stats.go",
       "local_sha256": "461b7f950f5c630e31490d2fe550bc09f10f150877f9bec4c5d53c632abaad3f",
+      "upstream_path": "vips/stats/stats.go",
       "upstream_sha256": "0a7cbf3743ec652a4f0df677bb77d1b8faf431d77c1bbbf21a047cd920fe13d7",
-      "comparison": "identical_after_import_rewrite",
-      "upstream_path": "vips/stats/stats.go"
+      "comparison": "identical_after_import_rewrite"
     },
     {
       "path": "internal/vips/vips.c",
       "local_sha256": "aa0291bebb3760ba81001431fa667a7f92936c7d1bcb1cdb81a465c5928dc73e",
+      "upstream_path": "vips/vips.c",
       "upstream_sha256": "5f406d3499cee82726315389d6eb28f3abbfa7ab29d67f388cfc43d37b0ec089",
-      "comparison": "modified",
-      "upstream_path": "vips/vips.c"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/vips.go",
-      "local_sha256": "3eb838594c634707730fcef27c492ca269aa241e4c24fb80905a4f1bbbff8cfe",
+      "local_sha256": "675a0d37e1918c3446fff8c32f3a9488b68a84d9b7a5ffcbb94af4d4882f9a3c",
+      "upstream_path": "vips/vips.go",
       "upstream_sha256": "b8ae37055db446e69a7579446077f745dd696f824833e90baa69ed43616febd6",
-      "comparison": "modified",
-      "upstream_path": "vips/vips.go"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/vips.h",
       "local_sha256": "d598af9d7bb2f970a20518cb17ff4f118ea7996154a1b10e01fa3548d0dd1b43",
+      "upstream_path": "vips/vips.h",
       "upstream_sha256": "e338c07d12c1f1cb55f66e7e5d87084bbbd6acbcde813cfa22afe7ca86dea046",
-      "comparison": "modified",
-      "upstream_path": "vips/vips.h"
+      "comparison": "modified"
     },
     {
       "path": "internal/vips/webp_preset.go",
       "local_sha256": "75d8aebb37caf291f6e58d8a85111ff8361b7badc3b19f98d116d80dc502d8eb",
+      "upstream_path": "vips/webp_preset.go",
       "upstream_sha256": "16466d018fb421ff787cda5c4fa5184805f076e2a9c8baeeb5bac841e1a4e591",
-      "comparison": "modified",
-      "upstream_path": "vips/webp_preset.go"
+      "comparison": "modified"
     }
   ],
   "summary": {
-    "identical_after_import_rewrite": 51,
-    "modified": 31,
+    "identical_after_import_rewrite": 49,
+    "modified": 33,
     "local_only": 3
   },
   "components": [
@@ -707,5 +707,5 @@
       "sha256": "b6c3b704f1b320add27ab41da2a954805a8cf4ff1509c5fd5b7397ef7595e951"
     }
   ],
-  "port_diff_sha256": "f888772e471be067cea78298acc65ae34294faf0fc27b38620ab5fc0e1392cef"
+  "port_diff_sha256": "09f4f1e6c6083d2c2bedbd5d033f33d889f97ef015ae43ce0125e3e6977b2f75"
 }

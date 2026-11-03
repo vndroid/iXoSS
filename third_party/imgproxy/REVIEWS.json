@@ -529,6 +529,7 @@
           "upstream_paths": [
             ".devcontainer/docker-compose.yml",
             ".github/workflows/container-info.yml",
+            "CHANGELOG.md",
             "docker/Dockerfile",
             "go.mod",
             "go.sum"
@@ -551,7 +552,6 @@
           "commit": "40db5f87cd15d64b5bfd35ac645185f075fa31b5",
           "subject": "v4.0.20",
           "upstream_paths": [
-            "CHANGELOG.md",
             "version/version.go"
           ],
           "local_paths": [],

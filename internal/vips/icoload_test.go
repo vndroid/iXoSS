@@ -99,3 +99,49 @@ func TestIcoValidPNGAndBMPPayloads(t *testing.T) {
 		})
 	}
 }
+
+// A BMP ICO payload declaring the given header length, geometry and palette,
+// as in the imgproxy a0bbb32 fixtures.
+func icoBMPPayload(headerLen uint32, width int32, bpp uint16, colors uint32) []byte {
+	payload := make([]byte, 4136)
+	binary.LittleEndian.PutUint32(payload[0:4], headerLen)
+	binary.LittleEndian.PutUint32(payload[4:8], uint32(width))
+	binary.LittleEndian.PutUint32(payload[8:12], 2) // Includes the AND mask height.
+	binary.LittleEndian.PutUint16(payload[12:14], 1)
+	binary.LittleEndian.PutUint16(payload[14:16], bpp)
+	binary.LittleEndian.PutUint32(payload[32:36], colors)
+	for i := 40; i < len(payload); i++ {
+		payload[i] = 0xAA
+	}
+	return payload
+}
+
+// The synthesized BMP header must not trust the payload's header length,
+// width or palette size (imgproxy v4.0.21).
+func TestIcoRejectsUnsafeBMPHeaders(t *testing.T) {
+	for name, tc := range map[string]struct {
+		payload []byte
+		want    string
+	}{
+		"bad-header-len":     {icoBMPPayload(108, 1, 24, 0), "unexpected BMP header length"},
+		"width-overflow":     {icoBMPPayload(40, 536870911, 8, 0), "unable to load ICO image as BMP"},
+		"numcolors-overflow": {icoBMPPayload(40, 1, 8, 1<<30), "invalid BMP palette size"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			defer Cleanup()
+			data := imagedata.NewFromBytesWithFormat(imagetype.ICO, icoEntry(tc.payload, uint32(len(tc.payload))))
+			defer data.Close()
+			img := new(Image)
+			defer img.Clear()
+			err := img.Load(data, 1, 0, 1)
+			if err == nil {
+				err = img.CopyMemory()
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
