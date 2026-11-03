@@ -198,9 +198,12 @@ v4.0.21 is a security release. The BMP/ICO loader fixes from `a0bbb32` are
 ported (4f13fb5); before the fix, one crafted BMP could abort the whole
 process on an assertion. The v4.0.17 source baseline is unchanged.
 
-The interval is recorded as incomplete: imgproxy-base v4.0.13 updates
-fribidi, lcms2, aom and libjpeg-turbo, which Alpine 3.23 ships older, and
-these have not yet been built for the image. See CHANGE.md's v4.0.21 entry.
+imgproxy-base v4.0.13 updates fribidi, lcms2, aom and libjpeg-turbo, which
+Alpine 3.23 ships older. Each was assessed against this image's call paths and
+none is built for now: libjpeg-turbo's fixes are unreachable, fribidi's
+reachable case is bounded by the watermark text cap, and the lcms2/aom risk is
+accepted while source images are operator-maintained. The interval is complete;
+CHANGE.md's v4.0.21 entry lists the reasons and when to revisit them.
 
 The same review corrected a v4.0.20 record: `CHANGELOG.md` belongs to
 `f9b2a42`, not to the release commit. Only `--upstream` audits can detect

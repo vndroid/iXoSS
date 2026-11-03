@@ -702,8 +702,8 @@
       "version": "v4.0.21",
       "commit": "302105ccd183d0038ef71aa11ab4ff3de5f0c989"
     },
-    "complete": false,
-    "scope": "Per-release applicability recorded through v4.0.21; v4.0.21 BMP/ICO loader fixes ported. Native library updates from imgproxy-base v4.0.13 are pending. Not a comprehensive native vulnerability audit."
+    "complete": true,
+    "scope": "Per-release applicability recorded through v4.0.21; v4.0.21 BMP/ICO loader fixes ported. imgproxy-base v4.0.13 native updates assessed and deliberately not built (operator-maintained sources). Not a comprehensive native vulnerability audit."
   },
   "retained_notices": [
     {

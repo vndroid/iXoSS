@@ -10,7 +10,7 @@ Do not create separate version-number Markdown files.
 Upstream target: 302105ccd183d0038ef71aa11ab4ff3de5f0c989. Type: security
 release ("Fixed several vulnerabilities in BMP and ICO loaders") plus
 dependency updates. Both commits are recorded in REVIEWS.json; the interval
-stays incomplete until the native updates below are decided.
+is complete.
 
 ### BMP/ICO loader fixes (ported in 4f13fb5)
 
@@ -36,28 +36,40 @@ ASAN abort on a 28 GiB allocation; a 1000001-row bottom-up BMP aborted the
 whole process on an assertion. With the fix all cases pass, including under
 Clang ASAN, together with the full server regression.
 
-### Native library updates (pending)
+### Native library updates (assessed, not built)
 
-imgproxy-base v4.0.13 updates four libraries that Alpine 3.23 ships older:
+imgproxy-base v4.0.13 updates four libraries that Alpine 3.23 ships older.
+Each was checked against the functions this image actually calls (library
+linkage and imported symbols in Alpine 3.23 vips, libheif plugin priorities).
+Decision on 2026-11-03: none is built for now.
 
-| Library | Alpine 3.23 | imgproxy-base v4.0.13 | Relevant fixes |
-| --- | --- | --- | --- |
-| fribidi | 1.0.16 | 1.0.18 | out-of-bounds write in `fribidi_remove_bidi_marks()`, unchecked allocations |
-| lcms2 | 2.19 | 2.20 | crash with malformed profiles, memory leaks |
-| aom | 3.14.1 | 3.15.3 | integer overflow in the encoder; 3.15.0 fixed a set of security issues |
-| libjpeg-turbo | 3.1.2 | 3.2.1 | CVE-2026-75466 and overruns, mostly in TurboJPEG APIs libvips does not use |
+| Library | Alpine / upstream | Reached through | Fixes on that path | Decision |
+| --- | --- | --- | --- | --- |
+| libjpeg-turbo | 3.1.2 / 3.2.1 | libvips, every JPEG | None. libvips uses only the classic libjpeg API (`jpeg_read_scanlines` etc.); the fixes, including CVE-2026-75466, are in TurboJPEG `tj3*`, the Java wrapper, jpegtran, `jpeg_crop_scanline`/`jpeg_skip_scanlines` or API misuse | Not applicable |
+| fribidi | 1.0.16 / 1.0.18 | Pango, text watermarks | Pango calls only `fribidi_get_par_embedding_levels_ex`, `fribidi_get_bidi_type` and `fribidi_get_bracket`. The out-of-bounds write (`fribidi_remove_bidi_marks`) and unchecked allocations (`reorder_line`, `log2vis`) are not called. The quadratic time on many isolates is reachable from `text_` | Mitigated by the 14-column text cap (899d7e6) |
+| lcms2 | 2.19 / 2.20 | libvips, embedded ICC profiles of source images | Profile I/O double-free guards (`153fd047`) and float CLUT interpolation bounds (`8db7d032`); libvips opens embedded profiles and builds float transforms | Risk accepted: source images are maintained by the operator |
+| aom | 3.14.1 / 3.15.3 | libheif, AVIF encoding only (dav1d, priority 150, decodes AVIF ahead of aom's 100) | 3.15.0 fixed a multithreaded-encoding double free; libheif encodes with one thread per CPU. The 3.15.3 overflow is in realtime partitioning, not libheif's default good-quality mode | Risk accepted: encoded pixels come from operator-maintained images |
 
-fribidi is reached through Pango for text watermarks; lcms2 for embedded
-colour profiles; aom for AVIF encoding; libjpeg-turbo for every JPEG.
-They are not yet built for the Alpine image. Until they are, these libraries
-stay at Alpine's versions; the BMP/ICO fixes above do not depend on them.
+Revisit lcms2 and aom when any of these changes:
+
+- source images can be supplied by users or other untrusted parties;
+- Alpine publishes these versions (re-check at each Alpine package update);
+- a fix is published with a known exploit for a path listed above.
+
+Enabling request signing (`IXOSS_KEY`/`IXOSS_SALT`) further limits aom exposure:
+unsigned requests can force AVIF encoding of any source at chosen dimensions.
+The assessment follows call paths and release notes; no exploit was built for
+each fix, and aom 3.15.0's security fixes are only partly described upstream.
+This is not a comprehensive native vulnerability audit.
 The Go module updates affect removed cloud/telemetry code; go-xmp is unchanged.
 
 ### OSS contract
 
 No change to URL syntax, status codes or response bodies for valid images.
 Malformed BMP and ICO inputs that were previously accepted, or crashed the
-process, now fail with the normal processing error.
+process, now fail with the normal processing error. Separately, 899d7e6 caps
+`watermark,text_` at 7 CJK or 14 other characters (400 above that); OSS
+documents no such limit, see DIFF.md.
 
 ### Rollback
 

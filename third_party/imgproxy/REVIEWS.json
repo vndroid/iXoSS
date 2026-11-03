@@ -572,8 +572,8 @@
         "commit": "302105ccd183d0038ef71aa11ab4ff3de5f0c989"
       },
       "date": "2026-11-03",
-      "scope": "Both upstream commits assessed; BMP/ICO loader fixes ported. Native library updates from imgproxy-base v4.0.13 are pending for the Alpine image.",
-      "complete": false,
+      "scope": "Both upstream commits assessed; BMP/ICO loader fixes ported. imgproxy-base v4.0.13 native updates assessed per library and deliberately not built; reasons and accepted risks in CHANGE.md.",
+      "complete": true,
       "commits": [
         {
           "commit": "a0bbb32a218801a454f04339caa4fc0f4bf6d790",
@@ -630,12 +630,14 @@
             "version/version.go"
           ],
           "local_paths": [
-            "Dockerfile"
+            "internal/ossprocess/watermark.go"
           ],
-          "status": "pending_port",
-          "reason": "Release metadata plus dependency updates. Go module changes affect removed cloud/telemetry code; go-xmp v1.0.0 is unchanged. imgproxy-base v4.0.13 updates lcms2 2.20, libjpeg-turbo 3.2.1, aom 3.15.3 and fribidi 1.0.18; Alpine 3.23 ships lcms2 2.19, libjpeg-turbo 3.1.2, aom 3.14.1 and fribidi 1.0.16. fribidi 1.0.18 fixes an out-of-bounds write and lcms2 2.20 a crash on malformed profiles. The native updates are not yet built for the Alpine image.",
+          "status": "not_applicable",
+          "reason": "Release metadata and dependency updates; native builds deliberately deferred (decision 2026-11-03), not a claim that every update is irrelevant. Go module changes affect removed cloud/telemetry code; go-xmp is unchanged. libjpeg-turbo 3.2.1: not reachable; libvips uses only the classic libjpeg API, and the fixes are in TurboJPEG, jpegtran, jpeg_crop_scanline/skip_scanlines or API misuse. fribidi 1.0.18: the out-of-bounds write and unchecked allocations are in functions Pango does not call; the reachable quadratic-time case is bounded by the 14-column watermark text cap (899d7e6). lcms2 2.20: reachable through embedded ICC profiles, risk accepted because source images are maintained by the operator. aom 3.15.3: encoder only (dav1d decodes AVIF); multithreaded AVIF encoding of operator-maintained images, risk accepted. Revisit lcms2 and aom if source images can come from untrusted parties, and on the next Alpine package updates.",
           "dependencies": [],
-          "evidence": []
+          "evidence": [
+            "Library linkage and imported symbols checked in Alpine 3.23 vips; libheif v1.23.7 plugin priorities checked (dav1d 150, aom decoder 100); see CHANGE.md v4.0.21."
+          ]
         }
       ]
     }

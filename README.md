@@ -650,8 +650,9 @@ selected master changes. The original import did not record its exact revision.
 Security review now covers all commits through **v4.0.21**. Backported fixes
 include the v4.0.18 BMP RLE8 padding bound and the v4.0.21 BMP/ICO loader
 hardening; Docker requires Alpine's fixed CA bundle and builds patched libheif
-and HarfBuzz. Native library updates from imgproxy-base v4.0.13 are still
-pending. The original baseline remains unchanged; see
+and HarfBuzz. The native updates in imgproxy-base v4.0.13 were assessed and
+are not built while source images are operator-maintained. The original
+baseline remains unchanged; see
 [CHANGE.md](third_party/imgproxy/CHANGE.md) for each release's adopted changes
 and fixes that do not apply to this port.
 See [the upstream audit](third_party/imgproxy/README.md) and
