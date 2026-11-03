@@ -561,6 +561,83 @@
           "evidence": []
         }
       ]
+    },
+    {
+      "from": {
+        "version": "v4.0.20",
+        "commit": "40db5f87cd15d64b5bfd35ac645185f075fa31b5"
+      },
+      "to": {
+        "version": "v4.0.21",
+        "commit": "302105ccd183d0038ef71aa11ab4ff3de5f0c989"
+      },
+      "date": "2026-11-03",
+      "scope": "Both upstream commits assessed; BMP/ICO loader fixes ported. Native library updates from imgproxy-base v4.0.13 are pending for the Alpine image.",
+      "complete": false,
+      "commits": [
+        {
+          "commit": "a0bbb32a218801a454f04339caa4fc0f4bf6d790",
+          "subject": "Fix bmpload issues (#1743)",
+          "upstream_paths": [
+            "integration_test/bmp_overflow_test.go",
+            "testdata/bmp-32bpp-overflow.bmp",
+            "testdata/bmp-area-too-large.bmp",
+            "testdata/bmp-height-bottom-up-too-tall.bmp",
+            "testdata/bmp-height-int-min.bmp",
+            "testdata/bmp-width-int-max.bmp",
+            "testdata/bmp-width-overflow.bmp",
+            "testdata/bmp-width-too-large.bmp",
+            "testdata/ico-bmp-bad-header-len.ico",
+            "testdata/ico-bmp-numcolors-overflow.ico",
+            "testdata/ico-bmp-width-overflow.ico",
+            "vips/bmpload.c",
+            "vips/bmpload_test.go",
+            "vips/bmpsave.c",
+            "vips/icoload.c",
+            "vips/icoload_test.go",
+            "vips/source.go",
+            "vips/vips.go"
+          ],
+          "local_paths": [
+            "internal/vips/bmpload.c",
+            "internal/vips/bmpload_test.go",
+            "internal/vips/bmpsave.c",
+            "internal/vips/icoload.c",
+            "internal/vips/icoload_test.go",
+            "internal/vips/source.go",
+            "internal/vips/vips.go"
+          ],
+          "status": "ported",
+          "reason": "BMP/ICO loader hardening (GHSA-c4f2-mxv4-6fp5): bound width, height and pixel area before row-size arithmetic, reject INT32_MIN height, replace strip-geometry assertions with errors, validate the ICO BMP header length and palette size, check palette writes, keep partial reads at EOF and bound blob sizes. The pre-existing ICO size macro already had parentheses; local g_free cleanup is retained. Upstream fixture files are recreated in code from their headers; the deleted integration test maps to the existing bpp regression.",
+          "dependencies": [],
+          "evidence": [
+            "Unpatched code: 10 of 11 new BMP/ICO cases failed; overflowing widths and INT32_MIN height were accepted, a 100000x100000 header made ASAN abort on a 28 GiB allocation, and a 1000001-row bottom-up BMP aborted the process on g_assert. The bpp=40 case was already rejected (60d367c).",
+            "Patched: Go 1.27 build/vet/Staticcheck, go test ./... and Clang ASAN ICO/BMP tests passed; source lock regenerated against the v4.0.17 baseline."
+          ],
+          "local_commit": "4f13fb5d75def081fafbe1d123496f9fa139e845"
+        },
+        {
+          "commit": "302105ccd183d0038ef71aa11ab4ff3de5f0c989",
+          "subject": "v4.0.21",
+          "upstream_paths": [
+            ".devcontainer/docker-compose.yml",
+            ".github/workflows/container-info.yml",
+            "CHANGELOG.md",
+            "docker/Dockerfile",
+            "go.mod",
+            "go.sum",
+            "run",
+            "version/version.go"
+          ],
+          "local_paths": [
+            "Dockerfile"
+          ],
+          "status": "pending_port",
+          "reason": "Release metadata plus dependency updates. Go module changes affect removed cloud/telemetry code; go-xmp v1.0.0 is unchanged. imgproxy-base v4.0.13 updates lcms2 2.20, libjpeg-turbo 3.2.1, aom 3.15.3 and fribidi 1.0.18; Alpine 3.23 ships lcms2 2.19, libjpeg-turbo 3.1.2, aom 3.14.1 and fribidi 1.0.16. fribidi 1.0.18 fixes an out-of-bounds write and lcms2 2.20 a crash on malformed profiles. The native updates are not yet built for the Alpine image.",
+          "dependencies": [],
+          "evidence": []
+        }
+      ]
     }
   ],
   "prior_evidence": [

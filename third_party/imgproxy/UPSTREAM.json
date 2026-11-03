@@ -32,6 +32,11 @@
       "commit": "9d8bf3e54b8665a98c5934df15e7d0a31c5934e2",
       "release": "v4.0.18",
       "scope": "Reserve 256 bytes for the longest RLE8 absolute run including its alignment padding."
+    },
+    {
+      "commit": "a0bbb32a218801a454f04339caa4fc0f4bf6d790",
+      "release": "v4.0.21",
+      "scope": "Bound BMP dimensions and area, reject INT32_MIN height, replace strip assertions with errors, and validate ICO BMP header length and palette size."
     }
   ],
   "normalization": "Remove only the exact iXoSS modification-notice prefix and rewrite the Go import prefix; preserve all original notices, other comments, whitespace and logic. Raw local hashes include the added notice.",
@@ -694,11 +699,11 @@
   ],
   "review_progress": {
     "latest_interval": {
-      "version": "v4.0.20",
-      "commit": "40db5f87cd15d64b5bfd35ac645185f075fa31b5"
+      "version": "v4.0.21",
+      "commit": "302105ccd183d0038ef71aa11ab4ff3de5f0c989"
     },
-    "complete": true,
-    "scope": "Per-release applicability recorded through v4.0.20; independent Alpine native security builds, retaining OSS contract. Not a comprehensive native vulnerability audit."
+    "complete": false,
+    "scope": "Per-release applicability recorded through v4.0.21; v4.0.21 BMP/ICO loader fixes ported. Native library updates from imgproxy-base v4.0.13 are pending. Not a comprehensive native vulnerability audit."
   },
   "retained_notices": [
     {

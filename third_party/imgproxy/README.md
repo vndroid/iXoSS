@@ -17,8 +17,10 @@ The audit on 2026-10-22 compared every non-test Go/C/header file in the 13
 derived directories listed in NOTICE. Only the import prefix was normalized
 from `github.com/vndroid/iXoSS/internal/` to
 `github.com/imgproxy/imgproxy/v4/`; comments, whitespace and code were not
-normalized. Against v4.0.17, 51 files match exactly after that rewrite, 31
-contain modifications, and 3 have no upstream counterpart. UPSTREAM.json
+normalized. Against v4.0.17, 49 files match exactly after that rewrite, 33
+contain modifications, and 3 have no upstream counterpart. (The 2026-10-22
+audit found 51 and 31; the v4.0.21 backport moved vips/bmpsave.c and
+vips/source.go from identical to modified.) UPSTREAM.json
 records the local and upstream SHA-256 values and classification for each file.
 [PORT.diff](PORT.diff) contains the complete normalized source differences
 (a unified diff without context lines),
@@ -54,12 +56,12 @@ cherry-picked or that every master change was imported.
 
 ## Intentional differences
 
-The 31 modified files fall into these groups; the per-file list is in the lock:
+The 33 modified files fall into these groups; the per-file list is in the lock:
 
 | Area | Differences retained by iXoSS |
 | --- | --- |
 | processing (9 files), options/keys | OSS-specific operations/options, arbitrary rotation, brightness/contrast, rounded shapes, output format/animation handling, removal of SVG processing, local timeout API and error handling |
-| vips (10 files) | Additional C operations, runtime encoder/load-option probes, per-request save overrides, decoupling from upstream imagedata/options, configuration/error adaptation, ICO buffer cleanup and the RLE8 padding bound |
+| vips (12 files) | Additional C operations, runtime encoder/load-option probes, per-request save overrides, decoupling from upstream imagedata/options, configuration/error adaptation, ICO buffer cleanup, the RLE8 padding bound and the v4.0.21 BMP/ICO loader fixes |
 | security (4 files) | IXOSS configuration and limit validation, original-header checks, signing helper and adapted errors |
 | auximageprovider (3 files) | Close interface, local-only watermark source and IXOSS configuration |
 | env (3 files), imagetype/type | Removal of cloud-config support, IXOSS prefix handling and master logging/type changes |
@@ -78,6 +80,7 @@ root README's "What was changed relative to imgproxy" for the functional detail.
 | v4.0.16 / `a821b6a4cb07a1bf2bb9077431d1c1e734d79917` | Reject declared ICO entries above 10 MiB before allocating; check allocation failure; free buffers on failures |
 | v4.0.17 / `39fd9e844a8a46084161502e993d5a3c16ccf28d` | Require a full 40-byte BMP payload header, excluding the synthesized 14-byte BMP file header |
 | v4.0.18 / `9d8bf3e54b8665a98c5934df15e7d0a31c5934e2` | Reserve 256 bytes for the longest RLE8 absolute run: 255 pixel bytes plus one word-alignment padding byte |
+| v4.0.21 / `a0bbb32a218801a454f04339caa4fc0f4bf6d790` | Bound BMP width, height and area before row-size arithmetic; reject INT32_MIN height; turn strip-geometry assertions into errors; require a 40-byte BITMAPINFOHEADER and an in-bounds palette in ICO BMP entries |
 
 The v4.0.16 length check alone was insufficient. The port uses the corrected
 v4.0.17 payload check directly and retains its existing g_free cleanup.
@@ -188,3 +191,17 @@ adapt libheif 1.23.7 to Alpine; Brotli 1.2.1 is required. Following the
 abuild stage with signed APKs.
 The OSS watermark contract is unchanged. See CHANGE.md’s v4.0.20 entry for image
 inventory limitations, source archives, verification and rollback.
+
+### 2026-11-03: per-release review through v4.0.21
+
+v4.0.21 is a security release. The BMP/ICO loader fixes from `a0bbb32` are
+ported (4f13fb5); before the fix, one crafted BMP could abort the whole
+process on an assertion. The v4.0.17 source baseline is unchanged.
+
+The interval is recorded as incomplete: imgproxy-base v4.0.13 updates
+fribidi, lcms2, aom and libjpeg-turbo, which Alpine 3.23 ships older, and
+these have not yet been built for the image. See CHANGE.md's v4.0.21 entry.
+
+The same review corrected a v4.0.20 record: `CHANGELOG.md` belongs to
+`f9b2a42`, not to the release commit. Only `--upstream` audits can detect
+such path errors; run one against a reference checkout for every new interval.

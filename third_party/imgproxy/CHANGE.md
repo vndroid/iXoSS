@@ -5,6 +5,66 @@ patches, intentional exclusions, OSS compatibility, validation and rollback.
 Keep commit-level decisions in REVIEWS.json and the source lock in UPSTREAM.json.
 Do not create separate version-number Markdown files.
 
+## v4.0.21 applicability and validation
+
+Upstream target: 302105ccd183d0038ef71aa11ab4ff3de5f0c989. Type: security
+release ("Fixed several vulnerabilities in BMP and ICO loaders") plus
+dependency updates. Both commits are recorded in REVIEWS.json; the interval
+stays incomplete until the native updates below are decided.
+
+### BMP/ICO loader fixes (ported in 4f13fb5)
+
+`a0bbb32` (GHSA-c4f2-mxv4-6fp5) is ported to internal/vips:
+
+- bmpload.c: width and height are capped at 1,000,000 and the pixel area at
+  INT_MAX/4 before any row-size arithmetic; an INT32_MIN height is rejected
+  before negation; row sizes use size_t; strip-geometry `g_assert`s become
+  errors, so a malformed BMP fails one request instead of aborting the process.
+- icoload.c: the embedded BMP must have a 40-byte BITMAPINFOHEADER, its palette
+  must fit the entry, and the synthesized header is written with memcpy.
+- bmpsave.c checks the palette write; source.go keeps bytes returned together
+  with io.EOF; vips.go rejects blobs over 2 GiB and ignores empty blob writes.
+
+The port already parenthesized `MAX_ICO_ENTRY_DATA_SIZE` and keeps its g_free
+cleanup. Upstream's binary fixtures are rebuilt in code from their headers.
+The deleted bpp=40 integration test corresponds to 60d367c, already present;
+a unit regression now pins it.
+
+Evidence against the unpatched code: 10 of 11 new cases failed. Overflowing
+widths and an INT32_MIN height were accepted; a 100000x100000 header made
+ASAN abort on a 28 GiB allocation; a 1000001-row bottom-up BMP aborted the
+whole process on an assertion. With the fix all cases pass, including under
+Clang ASAN, together with the full server regression.
+
+### Native library updates (pending)
+
+imgproxy-base v4.0.13 updates four libraries that Alpine 3.23 ships older:
+
+| Library | Alpine 3.23 | imgproxy-base v4.0.13 | Relevant fixes |
+| --- | --- | --- | --- |
+| fribidi | 1.0.16 | 1.0.18 | out-of-bounds write in `fribidi_remove_bidi_marks()`, unchecked allocations |
+| lcms2 | 2.19 | 2.20 | crash with malformed profiles, memory leaks |
+| aom | 3.14.1 | 3.15.3 | integer overflow in the encoder; 3.15.0 fixed a set of security issues |
+| libjpeg-turbo | 3.1.2 | 3.2.1 | CVE-2026-75466 and overruns, mostly in TurboJPEG APIs libvips does not use |
+
+fribidi is reached through Pango for text watermarks; lcms2 for embedded
+colour profiles; aom for AVIF encoding; libjpeg-turbo for every JPEG.
+They are not yet built for the Alpine image. Until they are, these libraries
+stay at Alpine's versions; the BMP/ICO fixes above do not depend on them.
+The Go module updates affect removed cloud/telemetry code; go-xmp is unchanged.
+
+### OSS contract
+
+No change to URL syntax, status codes or response bodies for valid images.
+Malformed BMP and ICO inputs that were previously accepted, or crashed the
+process, now fail with the normal processing error.
+
+### Rollback
+
+Revert 4f13fb5 together with this record. Do not roll back the loader fixes
+without restricting BMP and ICO input, because the assertion failure is a
+process-level denial of service.
+
 ## v4.0.20 applicability and validation
 
 Upstream target: 40db5f87cd15d64b5bfd35ac645185f075fa31b5.

@@ -27,7 +27,8 @@ class AuditValidation(unittest.TestCase):
             lambda l, r: l['files'][0].update(upstream_path='../outside'),
             lambda l, r: l['files'][0].update(comparison='unknown'),
             lambda l, r: l['summary'].update(modified=999),
-            lambda l, r: l['review_progress'].update(complete=False),
+            lambda l, r: l['review_progress'].update(
+                complete=not l['review_progress']['complete']),
             lambda l, r: r['intervals'][0]['commits'][0].update(status='pending_analysis'),
             lambda l, r: r['intervals'][0]['commits'][0].update(reason=''),
             lambda l, r: r['intervals'][0]['commits'][2].update(evidence=[]),
