@@ -1164,7 +1164,10 @@ docker buildx build --target source-export \
 无处理参数的原图始终保留原始字节，可能含 EXIF/GPS。
 磁盘缓存通过一次原子写入保存摘要头与图像，命中时读取保存的强 ETag，
 不重新计算整图哈希。旧缓存视为未命中；处理设置和 libvips 编码器设置参与缓存身份，
-容量计入摘要头。升级或修改配置后可能留下不再使用的缓存文件。
+容量计入摘要头。不会改变成功结果的设置不参与：`IXOSS_VIPS_LEAK_CHECK`、
+`IXOSS_VIPS_CACHE_TRACE`、`IXOSS_TIFF_UNLIMITED` 和 `IXOSS_SVG_UNLIMITED`，
+切换它们不影响已有缓存。`IXOSS_PNG_UNLIMITED` 仅在剥离元数据时不参与：
+`IXOSS_STRIP_METADATA=false` 时，它决定超过 20 个的 PNG 文本块能否进入输出。升级或修改配置后可能留下不再使用的缓存文件。
 `IXOSS_CACHE_MAX_BYTES` 和 `IXOSS_CACHE_MAX_AGE_HOURS` 默认都为 `0`，不会自动淘汰。
 未开启淘汰时，如需回收空间，应停止所有共享该缓存目录的实例，再手动清空专用缓存目录；
 源图片必须存放在独立目录。开启淘汰后，旧条目可按容量或时间限制清理。

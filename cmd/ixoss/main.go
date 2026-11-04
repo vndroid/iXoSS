@@ -60,7 +60,20 @@ func main() {
 
 // cacheVariant includes pipeline and encoder configuration so restarts cannot
 // reuse output produced with different settings.
+//
+// Settings that cannot change the bytes of a successful result are cleared on
+// this copy, so toggling them keeps existing cache entries; the defaults are
+// all false, so default deployments keep their keys. Diagnostics never touch
+// output. The TIFF limit only decides whether a file loads, and failures are
+// not cached; SVG input is never processed. The PNG limit also caps how many
+// text chunks are read (20 of more), which reaches the output only when
+// metadata is kept, so it stays in the key then.
 func cacheVariant(pc processing.Config, vc vips.Config) (string, error) {
+	vc.LeakCheck, vc.CacheTrace = false, false
+	vc.TiffUnlimited, vc.SvgUnlimited = false, false
+	if pc.StripMetadata {
+		vc.PngUnlimited = false
+	}
 	variant, err := json.Marshal(struct {
 		Processing processing.Config
 		Vips       vips.Config

@@ -1319,7 +1319,12 @@ identity shortcut on cache misses and retains all original metadata.
 Processed cache files atomically store a SHA-256 digest followed by image bytes.
 Cache hits read the saved digest for strong ETags; they do not rehash the image.
 The format, processing settings and libvips encoder settings are part of cache
-identity. Upgrades or configuration changes can leave cache files that are no
+identity. Settings that cannot change a successful result are not:
+`IXOSS_VIPS_LEAK_CHECK`, `IXOSS_VIPS_CACHE_TRACE`, `IXOSS_TIFF_UNLIMITED` and
+`IXOSS_SVG_UNLIMITED`, so toggling them keeps existing entries.
+`IXOSS_PNG_UNLIMITED` is excluded only while metadata is stripped: with
+`IXOSS_STRIP_METADATA=false` it decides whether more than 20 PNG text chunks
+reach the output. Upgrades or configuration changes can leave cache files that are no
 longer used. Eviction is disabled by default: both `IXOSS_CACHE_MAX_BYTES` and
 `IXOSS_CACHE_MAX_AGE_HOURS` default to `0`. When eviction is not enabled, stop
 all instances sharing the cache directory and manually clear that dedicated
