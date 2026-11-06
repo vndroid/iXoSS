@@ -651,8 +651,8 @@
         "commit": "a08006d11003eef87218a7407b1f21a40f6da615"
       },
       "date": "2026-11-06",
-      "scope": "All five upstream commits assessed. The libexpat security update is adapted to Alpine; the BMP correctness fixes are not ported and await a decision.",
-      "complete": false,
+      "scope": "All five upstream commits assessed. The BMP correctness fixes are ported and the libexpat security update is adapted to Alpine.",
+      "complete": true,
       "commits": [
         {
           "commit": "9204012b2fee41af956462bbe07aa76278e3c8f5",
@@ -707,14 +707,16 @@
           ],
           "local_paths": [
             "internal/vips/bmpload.c",
+            "internal/vips/bmpload_test.go",
             "internal/vips/bmpsave.c"
           ],
-          "status": "pending_port",
-          "reason": "Correctness fixes, not a vulnerability; not ported because only security changes were requested, awaiting a decision. RGB555 BMPs decode wrongly and RLE8 MOVE_TO skips one row too many. The added NULL checks cannot trigger: VIPS_MALLOC is g_malloc0, which aborts instead of returning NULL. That also zeroes the palette, so a truncated palette reads zeros, not heap data.",
+          "status": "ported",
+          "reason": "Correctness fixes, not a vulnerability: RGB555 BMPs decoded wrongly and RLE8 MOVE_TO skipped one row too many. The added NULL checks are ported to stay close to upstream but cannot trigger: VIPS_MALLOC is g_malloc0, which aborts instead of returning NULL. That also zeroes the palette, so a truncated palette reads zeros, not heap data. Upstream's samples are rebuilt byte for byte in the tests.",
           "dependencies": [],
           "evidence": [
-            "Upstream samples on the current port: BI_RGB 555 white decoded to 000000, BITFIELDS 555 to 787cf8, RLE8 rows wrong; no ASAN report on any of the four samples."
-          ]
+            "Old decoder: BI_RGB 555 white decoded to 000000, BITFIELDS 555 to 787cf8 and RLE8 rows were misplaced, with no ASAN report. Patched: all cases pass in go test ./... and the Clang ASAN ICO/BMP run."
+          ],
+          "local_commit": "069d45a3dfce7b8e013c7c714231e94a469b18c5"
         },
         {
           "commit": "a08006d11003eef87218a7407b1f21a40f6da615",

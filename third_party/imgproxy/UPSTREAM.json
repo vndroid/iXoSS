@@ -702,8 +702,8 @@
       "version": "v4.0.22",
       "commit": "a08006d11003eef87218a7407b1f21a40f6da615"
     },
-    "complete": false,
-    "scope": "Per-release applicability recorded through v4.0.22; the libexpat floor is applied and the v4.0.22 BMP correctness fixes are pending a decision. Not a comprehensive native vulnerability audit."
+    "complete": true,
+    "scope": "Per-release applicability recorded through v4.0.22; v4.0.22 BMP correctness fixes ported and the libexpat floor applied. Not a comprehensive native vulnerability audit."
   },
   "retained_notices": [
     {

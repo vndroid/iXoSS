@@ -649,7 +649,7 @@ The maintained port is pinned to the **v4.0.17 audit/security baseline**
 selected master changes. The original import did not record its exact revision.
 Security review now covers all commits through **v4.0.22**. Backported fixes
 include the v4.0.18 BMP RLE8 padding bound and the v4.0.21 BMP/ICO loader
-hardening; Docker requires Alpine's fixed CA bundle and libexpat and builds
+hardening, and the v4.0.22 BMP decoding fixes are ported too; Docker requires Alpine's fixed CA bundle and libexpat and builds
 patched libheif and HarfBuzz. The native updates in imgproxy-base v4.0.13 were assessed and
 are not built while source images are operator-maintained. The original
 baseline remains unchanged; see

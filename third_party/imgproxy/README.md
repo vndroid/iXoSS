@@ -61,7 +61,7 @@ The 33 modified files fall into these groups; the per-file list is in the lock:
 | Area | Differences retained by iXoSS |
 | --- | --- |
 | processing (9 files), options/keys | OSS-specific operations/options, arbitrary rotation, brightness/contrast, rounded shapes, output format/animation handling, removal of SVG processing, local timeout API and error handling |
-| vips (12 files) | Additional C operations, runtime encoder/load-option probes, per-request save overrides, decoupling from upstream imagedata/options, configuration/error adaptation, ICO buffer cleanup, the RLE8 padding bound and the v4.0.21 BMP/ICO loader fixes |
+| vips (12 files) | Additional C operations, runtime encoder/load-option probes, per-request save overrides, decoupling from upstream imagedata/options, configuration/error adaptation, ICO buffer cleanup, the RLE8 padding bound and the v4.0.21 and v4.0.22 BMP/ICO loader fixes |
 | security (4 files) | IXOSS configuration and limit validation, original-header checks, signing helper and adapted errors |
 | auximageprovider (3 files) | Close interface, local-only watermark source and IXOSS configuration |
 | env (3 files), imagetype/type | Removal of cloud-config support, IXOSS prefix handling and master logging/type changes |
@@ -212,6 +212,7 @@ such path errors; run one against a reference checkout for every new interval.
 ### 2026-11-06: per-release review through v4.0.22
 
 v4.0.22 is a bug-fix release, not a vulnerability release. The image now requires
-libexpat 2.10.0 from Alpine. The BMP correctness fixes from `823aa6b` are not
-ported and the interval is incomplete until that is decided. See CHANGE.md's
-v4.0.22 entry. The v4.0.17 source baseline and port counts are unchanged.
+libexpat 2.10.0 from Alpine, and the BMP correctness fixes from `823aa6b` are
+ported (069d45a). The interval is complete; CHANGE.md's v4.0.22 entry has the cache
+upgrade note for affected BMPs. The v4.0.17 source baseline and port counts are
+unchanged.

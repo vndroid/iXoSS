@@ -557,7 +557,7 @@ OpenTelemetry、Datadog、New Relic、Sentry、Airbrake、Bugsnag、Prometheus �
 （`2c89e4ebff3384caf6752db2ec861b4ef5fe675c`），包含 iXoSS 修改和
 精选的 master 更改。原始导入未记录其确切版本。
 后续安全评审已覆盖至 **v4.0.22**，回移植了 v4.0.18 的 BMP RLE8 填充边界修复
-和 v4.0.21 的 BMP/ICO 加载器加固；Docker 要求 Alpine 修复版 CA 信任包和 libexpat，并自行
+和 v4.0.21 的 BMP/ICO 加载器加固，也移植了 v4.0.22 的 BMP 解码修复；Docker 要求 Alpine 修复版 CA 信任包和 libexpat，并自行
 构建修补后的 libheif 和 HarfBuzz。imgproxy-base v4.0.13 的原生库更新已逐个评估，
 在源图由运维方自行维护期间暂不构建。
 原始基线不变，各版本的适用性与验证详见

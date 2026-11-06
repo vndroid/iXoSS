@@ -10,8 +10,7 @@ Do not create separate version-number Markdown files.
 Upstream target: a08006d11003eef87218a7407b1f21a40f6da615. Type: bug-fix release
 ("Minor bugs in bmp image loader") plus dependency updates. No source change is
 a vulnerability fix; the one security item is libexpat in the base image. All
-five commits are in REVIEWS.json. The interval stays incomplete until the BMP
-fixes below are decided.
+five commits are in REVIEWS.json; the interval is complete.
 
 ### libexpat floor (applied)
 
@@ -22,22 +21,26 @@ bundle, so a cached layer cannot keep an older package. No request reaches
 expat here: libvips uses it only for its `.v` format, which iXoSS never loads,
 and fontconfig only for local configuration files.
 
-### BMP correctness fixes (not ported, decision pending)
+### BMP correctness fixes (ported in 069d45a)
 
-`823aa6b` is not a security fix. The upstream samples show the same behavior in
-this port, with no ASAN report on any of the four:
+`823aa6b` is not a security fix, and was ported to correct the output:
 
-| Input | Current result | Upstream result |
+| Input | Before | After |
 | --- | --- | --- |
 | 16-bit BI_RGB (RGB555), white | black | near-white |
 | 16-bit BITFIELDS 5-5-5, white | `787cf8` | near-white |
 | RLE8 MOVE_TO with dy > 0 | rows one too far down | correct rows |
 
-Its NULL checks in bmpload.c and bmpsave.c cannot trigger: `VIPS_MALLOC` is
-`g_malloc0`, which aborts rather than returns NULL. It also zeroes the buffer,
-so indices past a truncated palette read zeros, not heap data. Porting would
-change the output of affected BMPs, and processed-cache entries for them would
-need clearing because the cache key does not cover decoder fixes.
+ASAN reported nothing on the old decoder. Its NULL checks in bmpload.c and
+bmpsave.c are ported to stay close to upstream but cannot trigger: `VIPS_MALLOC`
+is `g_malloc0`, which aborts rather than returns NULL. It also zeroes the buffer,
+so indices past a truncated palette read zeros, not heap data; a test pins this.
+Upstream's samples are rebuilt byte for byte in the tests.
+
+**Upgrade note:** the processed-cache key does not cover decoder changes. Resized
+or converted results of affected BMPs keep their old pixels until those entries
+are evicted or the cache is cleared. Deployments that serve such BMPs should stop
+all instances sharing the cache directory and clear it. Other images are unaffected.
 
 ### Not applicable
 
@@ -49,8 +52,10 @@ need clearing because the cache key does not cover decoder fixes.
 
 ### OSS contract and rollback
 
-No change to URL syntax or HTTP behavior. Reverting the floor is safe only while
-the Alpine repository still resolves libexpat to 2.10.0 or later.
+No change to URL syntax or HTTP behavior; only the pixels of the affected BMPs
+change. Revert 069d45a independently to restore the old decoding, then clear the
+cache in the same way. Reverting the floor is safe only while the Alpine
+repository still resolves libexpat to 2.10.0 or later.
 
 ## v4.0.21 applicability and validation
 
