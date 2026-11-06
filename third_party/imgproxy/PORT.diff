@@ -1049,19 +1049,58 @@
 +      (width <= 0) || (height <= 0) ||
 +      (width > BMP_MAX_DIMENSION) || (height > BMP_MAX_DIMENSION) ||
 +      ((int64_t) width * (int64_t) height > BMP_MAX_PIXELS)) {
-@@ -378 +397 @@
+@@ -288 +307 @@
+-      // Go ahead, it's a regular 16 bit image
++      // Go ahead, it's a regular 555 16 bit image
+@@ -300,0 +320,6 @@
++  }
++  else if (bpp == 16) {
++    // Per the BMP spec, 16-bit BI_RGB images use the RGB555 layout by default
++    rmask = 0x7C00;
++    gmask = 0x03E0;
++    bmask = 0x001F;
+@@ -324,0 +350,4 @@
++    if (bmp->palette == NULL) {
++      vips_error("vips_foreign_load_bmp_header", "unable to allocate BMP palette");
++      return -1;
++    }
+@@ -378 +407 @@
 -  int row_size = (bmp->bytes_per_pixel * r->width + 3) & (~3);
 +  size_t row_size = ((size_t) bmp->bytes_per_pixel * r->width + 3) & (~(size_t) 3);
-@@ -419 +438 @@
+@@ -419 +448 @@
 -  int row_size = (bmp->bytes_per_pixel * r->width + 3) & (~3);
 +  size_t row_size = ((size_t) bmp->bytes_per_pixel * r->width + 3) & (~(size_t) 3);
-@@ -500 +519 @@
+@@ -436,4 +465,12 @@
+-      // 565 and non-565 formats both are handled here: they differ by the masks
+-      dest[0] = (uint8_t) ((pixel & bmp->rmask) >> 11) << 3;
+-      dest[1] = (uint8_t) ((pixel & bmp->gmask) >> 5) << 2;
+-      dest[2] = (uint8_t) (pixel & bmp->bmask) << 3;
++      if (bmp->bmp565) {
++        // RGB565: 5 bits red, 6 bits green, 5 bits blue
++        dest[0] = (uint8_t) ((pixel & bmp->rmask) >> 11) << 3;
++        dest[1] = (uint8_t) ((pixel & bmp->gmask) >> 5) << 2;
++        dest[2] = (uint8_t) (pixel & bmp->bmask) << 3;
++      }
++      else {
++        // RGB555: 5 bits per channel
++        dest[0] = (uint8_t) ((pixel & bmp->rmask) >> 10) << 3;
++        dest[1] = (uint8_t) ((pixel & bmp->gmask) >> 5) << 3;
++        dest[2] = (uint8_t) (pixel & bmp->bmask) << 3;
++      }
+@@ -500 +537 @@
 -  int row_size = ((r->width + cap - 1) / cap + 3) & (~3);
 +  size_t row_size = ((size_t) (r->width + cap - 1) / cap + 3) & (~(size_t) 3);
-@@ -573 +592 @@
+@@ -573 +610 @@
 -          bmp->dy = G_MAXUINT32; // set dy to max, so all the leftover lines will be skipped
 +          bmp->dy = INT_MAX; // set dy to max, so all the leftover lines will be skipped
-@@ -651,10 +670,10 @@
+@@ -587 +624,2 @@
+-          // We treat movement by Y as EOL
++          // We treat movement by Y as EOL: breaking out of the loop already moves us one line down,
++          // so only dy - 1 more lines need to be skipped.
+@@ -590 +628 @@
+-            bmp->dy = dy;                    // We do not care if Y pos is outside of the impage, it's a separate check
++            bmp->dy = dy - 1;                // We do not care if Y pos is outside of the impage, it's a separate check
+@@ -651,10 +689,10 @@
 -  g_assert(r->left == 0);                                 // Strip starts at the left edge of the image
 -  g_assert(r->width == out_region->im->Xsize);            // Has width of the image
 -  g_assert(VIPS_RECT_BOTTOM(r) <= out_region->im->Ysize); // Equals or less of image height
@@ -1082,7 +1121,7 @@
 +    vips_error("vips_foreign_load_bmp_generate", "unexpected strip geometry");
 +    return -1;
 +  }
-@@ -690,4 +709,6 @@
+@@ -690,4 +728,6 @@
 -  // 255 bytes, and our buffer is smaller than that, we need it to be at least 255 bytes.
 -  int row_buffer_length = (bmp->width * 4) + 4;
 -  if (row_buffer_length < 255) {
@@ -1093,7 +1132,7 @@
 +  size_t row_buffer_length = ((size_t) bmp->width * 4) + 4;
 +  if (row_buffer_length < 256) {
 +    row_buffer_length = 256;
-@@ -712,0 +734 @@
+@@ -712,0 +753 @@
 +      // Ysize <= BMP_MAX_DIMENSION is checked in the header.
 --- upstream/vips/bmpsave.c
 +++ internal/vips/bmpsave.c
@@ -1103,6 +1142,12 @@
 +      vips_error("vips_foreign_save_bmp_build", "unable to write BMP palette to target");
 +      return -1;
 +    }
+@@ -201,0 +205,5 @@
++  if (bmp->line_buffer == NULL) {
++    vips_error("vips_foreign_save_bmp_build", "unable to allocate line buffer");
++    return -1;
++  }
++
 --- upstream/vips/config.go
 +++ internal/vips/config.go
 @@ -8 +8,3 @@

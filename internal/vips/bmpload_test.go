@@ -3,6 +3,8 @@ package vips
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
+	"image"
 	"image/png"
 	"math"
 	"runtime"
@@ -166,5 +168,93 @@ func TestBMPRejectsUnsupportedBitDepth(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), "unsupported bit depth") {
 		t.Fatalf("got %v, want unsupported bit depth", err)
+	}
+}
+
+// Samples from imgproxy 823aa6b, byte for byte.
+const (
+	bmp555BIRGB = "" +
+		"424d3e0000000000000036000000280000000200000002000000010010000000" +
+		"00000800000000000000000000000000000000000000ff7fff7fff7fff7f"
+	bmp555Bitfields = "" +
+		"424d8e000000000000008a0000007c0000000200000001000000010010000300" +
+		"00000400000000000000000000000000000000000000007c0000e00300001f00" +
+		"0000000000004247527300000000000000000000000000000000000000000000" +
+		"0000000000000000000000000000000000000000000000000000040000000000" +
+		"00000000000000000000ff7fff7f"
+	bmpRLE8MoveTo = "" +
+		"424d5c0000000000000042000000280000000200000004000000010008000100" +
+		"00000e0000000000000000000000030000000000000020202000383838005050" +
+		"50000201000000020001020200000001"
+	bmpTruncatedPalette = "" +
+		"424d7a0000000000000076000000280000000200000001000000010008000000" +
+		"000004000000000000000000000010000000000000000a0a0a000a0a0a000a0a" +
+		"0a000a0a0a000a0a0a000a0a0a000a0a0a000a0a0a000a0a0a000a0a0a000a0a" +
+		"0a000a0a0a000a0a0a000a0a0a000a0a0a000a0a0a00c8c80000"
+)
+
+func decodeBMPSample(t *testing.T, sample string) image.Image {
+	t.Helper()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	defer Cleanup()
+	raw, err := hex.DecodeString(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := imagedata.NewFromBytesWithFormat(imagetype.BMP, raw)
+	defer data.Close()
+	img := new(Image)
+	defer img.Clear()
+	if err := img.Load(data, 1, 0, 1); err != nil {
+		t.Fatal(err)
+	}
+	out, err := img.Save(imagetype.PNG, 80, SaveOverrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	decoded, err := png.Decode(out.Reader())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return decoded
+}
+
+// 16-bit BMPs are RGB555 under BI_RGB, and BITFIELDS may declare 5-5-5. Every
+// source pixel is 0x7FFF, white in RGB555; these used to decode as black and
+// as a tinted grey.
+func TestBMP16BitRGB555(t *testing.T) {
+	for name, sample := range map[string]string{"bi_rgb": bmp555BIRGB, "bitfields": bmp555Bitfields} {
+		t.Run(name, func(t *testing.T) {
+			decoded := decodeBMPSample(t, sample)
+			for y := decoded.Bounds().Min.Y; y < decoded.Bounds().Max.Y; y++ {
+				for x := decoded.Bounds().Min.X; x < decoded.Bounds().Max.X; x++ {
+					r, g, b, _ := decoded.At(x, y).RGBA()
+					if r>>8 < 248 || g>>8 < 248 || b>>8 < 248 {
+						t.Fatalf("pixel %d,%d: %02x%02x%02x, want near white", x, y, r>>8, g>>8, b>>8)
+					}
+				}
+			}
+		})
+	}
+}
+
+// RLE8 MOVE_TO must move exactly dy rows: the stream writes rows 0 and 2 of a
+// four-row bottom-up image, which are image rows 3 and 1.
+func TestBMPRLE8MoveToDy(t *testing.T) {
+	decoded := decodeBMPSample(t, bmpRLE8MoveTo)
+	for y, want := range []uint32{0x00, 0x50, 0x00, 0x38} {
+		if r, _, _, _ := decoded.At(0, y).RGBA(); r>>8 != want {
+			t.Errorf("row %d: red %02x, want %02x", y, r>>8, want)
+		}
+	}
+}
+
+// Indices past a truncated palette read zeroed memory, never heap contents.
+func TestBMPTruncatedPaletteReadsZeros(t *testing.T) {
+	decoded := decodeBMPSample(t, bmpTruncatedPalette)
+	if r, g, b, _ := decoded.At(0, 0).RGBA(); r != 0 || g != 0 || b != 0 {
+		t.Fatalf("got %02x%02x%02x, want black", r>>8, g>>8, b>>8)
 	}
 }

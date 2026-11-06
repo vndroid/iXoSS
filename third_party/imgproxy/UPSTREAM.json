@@ -6,7 +6,7 @@
     "commit": "2c89e4ebff3384caf6752db2ec861b4ef5fe675c",
     "meaning": "Audited release baseline with ICO security fixes backported; not a claim of unmodified upstream code or exact historical origin."
   },
-  "audit_date": "2026-11-03",
+  "audit_date": "2026-11-06",
   "historical_origin": "Unrecorded; reconstructed as 4.0 release code mixed with master changes and iXoSS modifications.",
   "additional_comparison": {
     "branch": "master",
@@ -489,14 +489,14 @@
     },
     {
       "path": "internal/vips/bmpload.c",
-      "local_sha256": "2fffedb426036aefbd6be30b0e358c75535a1ad9bd25a313921b8cf80d1862f0",
+      "local_sha256": "882e34fa5513f6eb129c967811bba3bc1b1ccc2ddbd75c1243763a0ce028d6ba",
       "upstream_path": "vips/bmpload.c",
       "upstream_sha256": "eb32e091e61c5b8e0129f8bbf92e7407bca5c8e208def820565a874ae43d05d0",
       "comparison": "modified"
     },
     {
       "path": "internal/vips/bmpsave.c",
-      "local_sha256": "c1b84dab72cb7701b036f39cb120fe23fe9ce3694a25edbbd9790bdcc84d126c",
+      "local_sha256": "55a8772db713c2be109c29986e7529e39f6af2320b34578ec2c085bbfcbf5c07",
       "upstream_path": "vips/bmpsave.c",
       "upstream_sha256": "b4595532bc4c3d430d748811e243641cf10d5923cf5a0f9427026d875903252d",
       "comparison": "modified"
@@ -712,5 +712,5 @@
       "sha256": "b6c3b704f1b320add27ab41da2a954805a8cf4ff1509c5fd5b7397ef7595e951"
     }
   ],
-  "port_diff_sha256": "09f4f1e6c6083d2c2bedbd5d033f33d889f97ef015ae43ce0125e3e6977b2f75"
+  "port_diff_sha256": "4c606b0b9fcb63352d4b9721b6800f906fa1ff8c449f59273dda8a884a687cf7"
 }
