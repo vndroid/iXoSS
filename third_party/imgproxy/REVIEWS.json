@@ -640,6 +640,106 @@
           ]
         }
       ]
+    },
+    {
+      "from": {
+        "version": "v4.0.21",
+        "commit": "302105ccd183d0038ef71aa11ab4ff3de5f0c989"
+      },
+      "to": {
+        "version": "v4.0.22",
+        "commit": "a08006d11003eef87218a7407b1f21a40f6da615"
+      },
+      "date": "2026-11-06",
+      "scope": "All five upstream commits assessed. The libexpat security update is adapted to Alpine; the BMP correctness fixes are not ported and await a decision.",
+      "complete": false,
+      "commits": [
+        {
+          "commit": "9204012b2fee41af956462bbe07aa76278e3c8f5",
+          "subject": "go-jose -> v4.1.7",
+          "upstream_paths": [
+            "go.mod",
+            "go.sum"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "go-jose belongs to removed cloud code; it is not in the iXoSS module graph.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "9affb97a9b364203e9e07ba23592e3efab43e34d",
+          "subject": "Temorary ignore go-jose (not affects us)",
+          "upstream_paths": [
+            ".github/workflows/trivy.yml"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream scanner configuration; iXoSS has its own CI.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "208b007560bdde550cf5430064e43a6fa0c922cd",
+          "subject": "Updated daily workflow from master",
+          "upstream_paths": [
+            ".github/workflows/daily.yml",
+            ".github/workflows/docker-scan.yml",
+            ".github/workflows/trivy.yml"
+          ],
+          "local_paths": [],
+          "status": "not_applicable",
+          "reason": "Upstream scheduled workflow and image scan configuration; iXoSS has its own CI.",
+          "dependencies": [],
+          "evidence": []
+        },
+        {
+          "commit": "823aa6b2b9a0fe50b6267d4272ec9b8d5dd6221e",
+          "subject": "bmp loader minor bug fixes",
+          "upstream_paths": [
+            "testdata/bmp-16bpp-rgb555-bi_rgb.bmp",
+            "testdata/bmp-16bpp-rgb555-bitfields.bmp",
+            "testdata/bmp-rle8-move-to.bmp",
+            "testdata/bmp-truncated-palette.bmp",
+            "vips/bmpload.c",
+            "vips/bmpload_test.go",
+            "vips/bmpsave.c"
+          ],
+          "local_paths": [
+            "internal/vips/bmpload.c",
+            "internal/vips/bmpsave.c"
+          ],
+          "status": "pending_port",
+          "reason": "Correctness fixes, not a vulnerability; not ported because only security changes were requested, awaiting a decision. RGB555 BMPs decode wrongly and RLE8 MOVE_TO skips one row too many. The added NULL checks cannot trigger: VIPS_MALLOC is g_malloc0, which aborts instead of returning NULL. That also zeroes the palette, so a truncated palette reads zeros, not heap data.",
+          "dependencies": [],
+          "evidence": [
+            "Upstream samples on the current port: BI_RGB 555 white decoded to 000000, BITFIELDS 555 to 787cf8, RLE8 rows wrong; no ASAN report on any of the four samples."
+          ]
+        },
+        {
+          "commit": "a08006d11003eef87218a7407b1f21a40f6da615",
+          "subject": "v4.0.22",
+          "upstream_paths": [
+            ".devcontainer/docker-compose.yml",
+            ".github/workflows/container-info.yml",
+            "CHANGELOG.md",
+            "docker/Dockerfile",
+            "go.mod",
+            "go.sum",
+            "version/version.go"
+          ],
+          "local_paths": [
+            "Dockerfile"
+          ],
+          "status": "adapted",
+          "reason": "Release metadata and imgproxy-base v4.0.14. libexpat 2.10.0 fixes four CVEs (CVE-2026-113351, -115506, -117610, -118370); the runtime stage now requires libexpat>=2.10.0-r0, already in Alpine 3.23. No request reaches expat: libvips uses it only for its .v format, which iXoSS never loads, and fontconfig for local configuration. HarfBuzz stays at 15.0.0: the 15.1.0 crash and hang fixes concern malformed fonts, and fonts come from the image, never from a request; its raster, vector and GPU libraries are disabled here. go-xmp is unchanged.",
+          "dependencies": [],
+          "evidence": [
+            "Built image installs libexpat-2.10.0-r0, with no missing shared libraries; all ten encoders initialize and /healthz returns 200.",
+            "libvips 8.17.3 calls XML_ParserCreate only in iofuncs/vips.c, for its .v format."
+          ]
+        }
+      ]
     }
   ],
   "prior_evidence": [

@@ -87,7 +87,7 @@ COPY --from=harfbuzz-native /harfbuzz-keys/ /tmp/native-keys/
 # Trust this build's key only for installation; retain the normal Alpine keys.
 RUN cp /tmp/native-keys/*.pub /etc/apk/keys/ \
     && apk add --no-cache 'ca-certificates-bundle>=20261020-r0' \
-        'brotli>=1.2.1-r0' vips vips-heif vips-jxl font-wqy-zenhei \
+        'brotli>=1.2.1-r0' 'libexpat>=2.10.0-r0' vips vips-heif vips-jxl font-wqy-zenhei \
         /tmp/native-apks/libheif-[0-9]*.apk /tmp/harfbuzz-apks/harfbuzz-[0-9]*.apk \
     && for key in /tmp/native-keys/*.pub; do rm "/etc/apk/keys/$(basename "$key")"; done \
     && rm -rf /tmp/native-apks /tmp/native-keys /tmp/harfbuzz-apks \

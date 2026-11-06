@@ -208,3 +208,10 @@ CHANGE.md's v4.0.21 entry lists the reasons and when to revisit them.
 The same review corrected a v4.0.20 record: `CHANGELOG.md` belongs to
 `f9b2a42`, not to the release commit. Only `--upstream` audits can detect
 such path errors; run one against a reference checkout for every new interval.
+
+### 2026-11-06: per-release review through v4.0.22
+
+v4.0.22 is a bug-fix release, not a vulnerability release. The image now requires
+libexpat 2.10.0 from Alpine. The BMP correctness fixes from `823aa6b` are not
+ported and the interval is incomplete until that is decided. See CHANGE.md's
+v4.0.22 entry. The v4.0.17 source baseline and port counts are unchanged.

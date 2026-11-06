@@ -5,6 +5,53 @@ patches, intentional exclusions, OSS compatibility, validation and rollback.
 Keep commit-level decisions in REVIEWS.json and the source lock in UPSTREAM.json.
 Do not create separate version-number Markdown files.
 
+## v4.0.22 applicability and validation
+
+Upstream target: a08006d11003eef87218a7407b1f21a40f6da615. Type: bug-fix release
+("Minor bugs in bmp image loader") plus dependency updates. No source change is
+a vulnerability fix; the one security item is libexpat in the base image. All
+five commits are in REVIEWS.json. The interval stays incomplete until the BMP
+fixes below are decided.
+
+### libexpat floor (applied)
+
+imgproxy-base v4.0.14 moves to libexpat 2.10.0, which fixes CVE-2026-113351,
+CVE-2026-115506, CVE-2026-117610 and CVE-2026-118370. Alpine 3.23 already ships
+2.10.0-r0; the runtime stage now requires it, as it does Brotli and the CA
+bundle, so a cached layer cannot keep an older package. No request reaches
+expat here: libvips uses it only for its `.v` format, which iXoSS never loads,
+and fontconfig only for local configuration files.
+
+### BMP correctness fixes (not ported, decision pending)
+
+`823aa6b` is not a security fix. The upstream samples show the same behavior in
+this port, with no ASAN report on any of the four:
+
+| Input | Current result | Upstream result |
+| --- | --- | --- |
+| 16-bit BI_RGB (RGB555), white | black | near-white |
+| 16-bit BITFIELDS 5-5-5, white | `787cf8` | near-white |
+| RLE8 MOVE_TO with dy > 0 | rows one too far down | correct rows |
+
+Its NULL checks in bmpload.c and bmpsave.c cannot trigger: `VIPS_MALLOC` is
+`g_malloc0`, which aborts rather than returns NULL. It also zeroes the buffer,
+so indices past a truncated palette read zeros, not heap data. Porting would
+change the output of affected BMPs, and processed-cache entries for them would
+need clearing because the cache key does not cover decoder fixes.
+
+### Not applicable
+
+- HarfBuzz stays at 15.0.0. The 15.1.0 crash and hang fixes concern malformed
+  fonts; fonts come from the image, never from a request. Its raster, vector
+  and GPU libraries are disabled here.
+- go-jose and the other Go updates belong to removed cloud code; go-xmp is
+  unchanged. Upstream workflow changes do not apply.
+
+### OSS contract and rollback
+
+No change to URL syntax or HTTP behavior. Reverting the floor is safe only while
+the Alpine repository still resolves libexpat to 2.10.0 or later.
+
 ## v4.0.21 applicability and validation
 
 Upstream target: 302105ccd183d0038ef71aa11ab4ff3de5f0c989. Type: security

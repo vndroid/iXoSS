@@ -647,10 +647,10 @@ XMP metadata.
 The maintained port is pinned to the **v4.0.17 audit/security baseline**
 (`2c89e4ebff3384caf6752db2ec861b4ef5fe675c`), with iXoSS modifications and
 selected master changes. The original import did not record its exact revision.
-Security review now covers all commits through **v4.0.21**. Backported fixes
+Security review now covers all commits through **v4.0.22**. Backported fixes
 include the v4.0.18 BMP RLE8 padding bound and the v4.0.21 BMP/ICO loader
-hardening; Docker requires Alpine's fixed CA bundle and builds patched libheif
-and HarfBuzz. The native updates in imgproxy-base v4.0.13 were assessed and
+hardening; Docker requires Alpine's fixed CA bundle and libexpat and builds
+patched libheif and HarfBuzz. The native updates in imgproxy-base v4.0.13 were assessed and
 are not built while source images are operator-maintained. The original
 baseline remains unchanged; see
 [CHANGE.md](third_party/imgproxy/CHANGE.md) for each release's adopted changes
